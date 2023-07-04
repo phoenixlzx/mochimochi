@@ -1,0 +1,25 @@
+{
+  "name": "mochimochi",
+  "version": "1.0.0",
+  "description": "Simplified Asset Management for Teams",
+  "main": "mochi.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phoenixlzx/mochimochi.git"
+  },
+  "author": "Phoenix Nemo",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/phoenixlzx/mochimochi/issues"
+  },
+  "homepage": "https://github.com/phoenixlzx/mochimochi#readme",
+  "dependencies": {
+    "node-rest-client": "^3.1.1"
+  }
+}
