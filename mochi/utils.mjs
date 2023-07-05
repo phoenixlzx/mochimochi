@@ -1,3 +1,13 @@
+export {
+    processManager,
+    blob2hex,
+    hex2bin,
+    bin2hex,
+    splitStr,
+    dec2hex,
+    hex2dec
+};
+
 function processManager(items, threads, threadFunc, callback) {
     let currentIndex = 0;
     let activeThreads = 0;
@@ -72,13 +82,3 @@ function hex2dec(hex, bigStr = false) {
     //returns string, used for long ints or int if false
     return (bigStr) ? BigInt('0x' + hex).toString(10) : parseInt(hex, 16)
 }
-
-export {
-    processManager,
-    blob2hex,
-    hex2bin,
-    bin2hex,
-    splitStr,
-    dec2hex,
-    hex2dec
-};
