@@ -6,7 +6,7 @@ import { auth } from './auth.mjs';
 function mochi() {
     switch (args[0]) {
         case 'auth':
-            auth();
+            auth(args);
             break;
         case 'vault':
             // TODO

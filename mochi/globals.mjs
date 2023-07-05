@@ -6,10 +6,15 @@ export {
 const ENDPOINTS = {
     login: function(clientId) {
         return "https://www.epicgames.com/id/login?redirectUrl=" +
-        encodeURIComponent(`https://www.epicgames.com/id/api/redirect?clientId=${clientId}&responseType=code`);
+            encodeURIComponent(`https://www.epicgames.com/id/api/redirect?clientId=${clientId}&responseType=code`);
     },
 
     auth_code: "https://account-public-service-prod.ak.epicgames.com/account/api/oauth/token",
+
+    refresh_token: function(token) {
+        return `https://account-public-service-prod.ak.epicgames.com/account/api/oauth/sessions/kill/${token}`;
+    },
+
     vault: "https://library-service.live.use1a.on.epicgames.com/library/api/public/items",
 
     manifest: function(catalogItemId, appName) {
@@ -23,8 +28,17 @@ const ENDPOINTS = {
 
 const VARS = {
     // https://github.com/MixV2/EpicResearch/blob/master/docs/auth/permissions/34a02cf8f4414e29b15921876da36f9a.md
-    clientId: "34a02cf8f4414e29b15921876da36f9a",
-    clientCred: "daafbccc737745039dffe53d94fc76cf",
-    clientCredBase64: "MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=",
-    clientUA: "EpicGamesLauncher/15.8.0-26257023+++Portal+Release-Live Windows/10.0.22621.1.256.64bit"
+    client_id: "34a02cf8f4414e29b15921876da36f9a",
+    client_cred: "daafbccc737745039dffe53d94fc76cf",
+    client_cred_base64: "MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=",
+    client_ua: "EpicGamesLauncher/15.8.0-26257023+++Portal+Release-Live Windows/10.0.22621.1.256.64bit",
+
+    date_options: {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long',
+        hour: '2-digit',
+        minute: '2-digit'
+    }
 }
