@@ -2,14 +2,15 @@
 const args = process.argv.slice(2);
 
 import { auth } from './auth.mjs';
+import { vault } from './vault.mjs';
 
-function mochi() {
+function mochi(args) {
     switch (args[0]) {
         case 'auth':
-            auth(args);
+            auth(args[1]);
             break;
         case 'vault':
-            // TODO
+            vault(args);
             break;
         case 'download':
             // TODO
@@ -29,4 +30,4 @@ function help() {
     console.log(message);
 }
 
-mochi();
+mochi(args);

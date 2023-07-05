@@ -11,10 +11,12 @@ export {
 
 async function auth(args) {
     let authData = await readAuth('data/auth.json');
-    switch (args[2]) {
+    switch (args) {
         case 'refresh':
             refreshAuth(authData);
             break;
+        case 'info':
+            return authData;
         default:
             if (authData) {
                 const currentDate = new Date();
@@ -26,11 +28,6 @@ async function auth(args) {
     Auth expired at ${refreshExpires.toLocaleDateString('en-US', VARS.date_options)}.
     `)
                     return login();
-                } else if (currentDate >= tokenExpires) {
-                    console.log(`
-    Token expired at ${tokenExpires.toLocaleDateString('en-US', VARS.date_options)}. Refreshing.
-    `);
-                    return refreshAuth(authData);
                 } else {
                     console.log(`
     Auth valid till ${tokenExpires.toLocaleDateString('en-US', VARS.date_options)}
@@ -52,7 +49,6 @@ async function login() {
         console.log('Auth saved.')
         return authData;
     }
-    console.log(authData);
     return;
 }
 
@@ -102,7 +98,7 @@ async function loginAuth(authCode) {
     });
     return await response.json();
 }
-
+/*
 async function refreshAuth(authData) {
     const resp = await fetch(ENDPOINTS.refresh_token(authData.access_token), {
         method: 'delete',
@@ -113,3 +109,4 @@ async function refreshAuth(authData) {
         }
     });
 }
+*/
