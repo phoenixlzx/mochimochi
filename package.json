@@ -2,7 +2,8 @@
   "name": "mochimochi",
   "version": "1.0.0",
   "description": "Simplified Asset Management for Teams",
-  "main": "mochi.js",
+  "type": "module",
+  "main": "mochi.mjs",
   "directories": {
     "test": "test"
   },
