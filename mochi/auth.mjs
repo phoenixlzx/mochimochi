@@ -89,7 +89,12 @@ async function readAuthCode() {
 async function loginAuth(authCode) {
     const response = await fetch(ENDPOINTS.auth_code, {
         method: 'post',
-        body: new URLSearchParams(`grant_type=authorization_code&code=${authCode}&token_type=eg1`),
+        //body: new URLSearchParams(`grant_type=authorization_code&code=${authCode}&token_type=eg1`),
+        body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: authCode,
+            token_type: 'eg1'
+        }),
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
             "Authorization": `Basic ${VARS.client_cred_base64}`,

@@ -14,6 +14,7 @@ async function vault(args) {
         const vaultData = await readVaultItems(ENDPOINTS.vault, authData);
         try {
             await fs.writeFile('data/vault.json', JSON.stringify(vaultData, null, 2), 'utf8');
+            return vaultData;
         } catch (err) {
             console.error('Error writing file:', err);
             return err;

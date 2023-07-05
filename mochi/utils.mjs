@@ -8,37 +8,18 @@ export {
     hex2dec
 };
 
-function processManager(items, threads, threadFunc, callback) {
-    let currentIndex = 0;
-    let activeThreads = 0;
+async function processManager(items, threadFunc, maxConcurrency = 1) {
+  let currentIndex = 0;
 
-    function processNext() {
-        if (currentIndex < items.length) {
-            const item = items[currentIndex];
-            currentIndex++;
+  function launch() {
+    if (currentIndex === items.length) return Promise.resolve();
 
-            activeThreads++;
-            threadFunc(item, function(err) {
-                if (err) {
-                    console.error(err);
-                }
+    const item = items[currentIndex++];
+    return threadFunc(item).then(launch);
+  }
 
-                activeThreads--;
-
-                if (currentIndex < items.length) {
-                    processNext();
-                } else if (activeThreads === 0) {
-                    callback();
-                }
-            });
-
-            if (activeThreads < threads) {
-                processNext();
-            }
-        }
-    }
-
-    processNext();
+  const workers = Array.from({ length: maxConcurrency }, launch);
+  await Promise.all(workers);
 }
 
 // https://github.com/VastBlast/EpicManifestDownloader/

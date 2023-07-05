@@ -3,6 +3,7 @@ const args = process.argv.slice(2);
 
 import { auth } from './auth.mjs';
 import { vault } from './vault.mjs';
+import { manifest } from './manifest.mjs';
 
 function mochi(args) {
     switch (args[0]) {
@@ -11,6 +12,9 @@ function mochi(args) {
             break;
         case 'vault':
             vault(args);
+            break;
+        case 'manifest':
+            manifest(args);
             break;
         case 'download':
             // TODO
