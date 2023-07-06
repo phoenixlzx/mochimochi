@@ -1,9 +1,9 @@
-import http from 'http';
+import fetch from 'node-fetch';
 import fs from 'node:fs/promises';
 import path from 'path';
 import zlib from 'zlib';
 
-import { ENDPOINTS, VARS } from './globals.mjs';
+import { VARS } from './globals.mjs';
 import { manifestCache } from './manifest.mjs';
 import * as utils from './utils.mjs'
 
@@ -48,14 +48,7 @@ async function getChunkList(manifest) {
     let list = [];
 
     for (const guid in manifest.ChunkHashList) {
-        list.push(
-            ENDPOINTS.chunk(
-                manifest.AppNameString,
-                manifest.DataGroupList[guid].slice(-2),
-                utils.blob2hex(manifest.ChunkHashList[guid]),
-                guid
-            )
-        );
+        list.push(`${manifest.CloudDir}/ChunksV3/${manifest.DataGroupList[guid].slice(-2)}/${utils.blob2hex(manifest.ChunkHashList[guid])}_${guid}.chunk`);
     }
 
     return list;
@@ -121,7 +114,7 @@ async function concatChunkToFile(fileParams) {
         const compressed = await fs.readFile(chunk.path);
 
         try {
-            const uncompressed = await decompress(compressed);
+            const uncompressed = await decompress(compressed, chunk.path);
             uncompressed.copy(chunkBuf, chunk.start, chunk.offset, chunk.offset + chunk.size);
         } catch (err) {
             console.error(err);
@@ -136,7 +129,7 @@ async function concatChunkToFile(fileParams) {
 
 }
 
-async function decompress(data) {
+async function decompress(data, file) {
 
     const offset = data[8];
     const slicedData = data.slice(offset === 120 ? 8 : offset);
@@ -144,6 +137,7 @@ async function decompress(data) {
     return new Promise((resolve, reject) => {
         zlib.inflate(slicedData, (err, uncompressed) => {
             if (err) {
+                console.error(`Error decompressing ${file}: ${err}`);
                 reject(err);
             } else {
                 resolve(uncompressed);
@@ -154,20 +148,17 @@ async function decompress(data) {
 
 async function downloadUrl(url) {
 
-    const options = {
+    const response = await fetch(url, {
         headers: {
             "User-Agent": VARS.client_ua
         }
-    };
-
-    return new Promise((resolve, reject) => {
-        http.get(url, options, (res) => {
-            const data = [];
-            res.on('data', (chunk) => data.push(chunk));
-            res.on('end', () => resolve(Buffer.concat(data)));
-            res.on('error', reject);
-        });
     });
+
+    if (!response.ok) {
+        throw new Error(`Failed to download: ${response.status} ${response.statusText}`);
+    }
+
+    return Buffer.from(await response.arrayBuffer());
 
 }
 

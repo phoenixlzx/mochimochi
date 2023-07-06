@@ -1,4 +1,7 @@
+import fetch from 'node-fetch';
+
 export {
+    fetchJson,
     processManager,
     blob2hex,
     hex2bin,
@@ -7,6 +10,16 @@ export {
     dec2hex,
     hex2dec
 };
+
+async function fetchJson(url, headers) {
+
+    const response = await fetch(url, {
+        headers: headers
+    });
+
+    return await response.json();
+
+}
 
 async function processManager(items, threadFunc, maxConcurrency = 1) {
 
@@ -23,6 +36,7 @@ async function processManager(items, threadFunc, maxConcurrency = 1) {
     const workers = Array.from({ length: maxConcurrency }, launch);
 
     await Promise.all(workers);
+
 }
 
 // https://github.com/VastBlast/EpicManifestDownloader/

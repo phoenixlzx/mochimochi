@@ -22,6 +22,7 @@ const ENDPOINTS = {
         return `https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/v2/platform/Windows/namespace/ue/catalogItem/${catalogItemId}/app/${appName}/label/Live`
     },
 
+    // deprecated
     chunk: function(appNameString, dataGroup, hash, guid) {
         return `http://download.epicgames.com/Builds/Rocket/Automated/${appNameString}/CloudDir/ChunksV3/${dataGroup}/${hash}_${guid}.chunk`;
     }
