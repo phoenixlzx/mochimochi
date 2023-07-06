@@ -6,6 +6,7 @@ import { auth } from './auth.mjs';
 import { vault, vaultCache } from './vault.mjs';
 import { manifest, manifestCache } from './manifest.mjs';
 import { download } from './download.mjs';
+import { archive } from './archive.mjs';
 
 export {
     auth,
@@ -13,7 +14,8 @@ export {
     vaultCache,
     manifest,
     manifestCache,
-    download
+    download,
+    archive
 };
 
 function mochi(args) {
@@ -29,6 +31,9 @@ function mochi(args) {
             break;
         case 'download':
             download(args[1]);
+            break;
+        case 'archive':
+            archive(args[1]);
             break;
         default:
             help();

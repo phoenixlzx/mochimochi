@@ -24,6 +24,8 @@
   },
   "homepage": "https://github.com/phoenixlzx/mochimochi#readme",
   "dependencies": {
+    "@root/walk": "^1.1.0",
+    "fflate": "^0.8.0",
     "node-fetch": "^3.3.1"
   }
 }
