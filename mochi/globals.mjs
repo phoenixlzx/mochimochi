@@ -4,6 +4,7 @@ export {
 };
 
 const ENDPOINTS = {
+
     login: function(clientId) {
         return "https://www.epicgames.com/id/login?redirectUrl=" +
             encodeURIComponent(`https://www.epicgames.com/id/api/redirect?clientId=${clientId}&responseType=code`);
@@ -24,9 +25,11 @@ const ENDPOINTS = {
     chunk: function(appNameString, dataGroup, hash, guid) {
         return `http://download.epicgames.com/Builds/Rocket/Automated/${appNameString}/CloudDir/ChunksV3/${dataGroup}/${hash}_${guid}.chunk`;
     }
+
 };
 
 const VARS = {
+
     // https://github.com/MixV2/EpicResearch/blob/master/docs/auth/permissions/34a02cf8f4414e29b15921876da36f9a.md
     client_id: "34a02cf8f4414e29b15921876da36f9a",
     client_cred: "daafbccc737745039dffe53d94fc76cf",
@@ -41,4 +44,5 @@ const VARS = {
         hour: '2-digit',
         minute: '2-digit'
     }
+
 }

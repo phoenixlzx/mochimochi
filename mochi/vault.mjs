@@ -10,8 +10,10 @@ export {
 };
 
 async function vault() {
+
     const authData = await auth();
     const vaultData = await readVaultItems(ENDPOINTS.vault, authData);
+
     try {
         await fs.writeFile('data/vault.json', JSON.stringify(vaultData, null, 2), 'utf8');
         return vaultData;
@@ -19,16 +21,21 @@ async function vault() {
         console.error(`Error saving vault.json: ${err}`);
         return;
     }
+
 }
 
 async function vaultCache() {
+
     try {
         const cache = await fs.readFile('data/vault.json', 'utf8');
+
         if (Array.isArray(cache)) {
             return cache;
         }
+
         return [];
     } catch (err) {
+
         if (err.code === 'ENOENT') {
             console.error('Vault cache not exist.');
             return await vault();
@@ -36,20 +43,27 @@ async function vaultCache() {
             console.error(`Error reading vault cache: ${err}`);
             return;
         }
+
     }
+
 }
 
 async function readVaultItems(url, authData) {
+
     let hasNext = 1;
     let cursor;
     let vaultItems = [];
 
     while (hasNext) {
+
         let query = 'includeMetadata=true';
+
         if (cursor) {
             query = `${query}&cursor=${cursor}`
         }
+
         let data = await readOneVaultPage(`${url}?${query}`, authData);
+
         if (Array.isArray(data.records)) {
             vaultItems = [...vaultItems, ...data.records];
             if (data.responseMetadata && data.responseMetadata.nextCursor) {
@@ -60,13 +74,17 @@ async function readVaultItems(url, authData) {
         } else {
             hasNext = 0;
         }
+
     }
 
     return vaultItems;
+
 }
 
 async function readOneVaultPage(url, authData) {
-    console.log(`Reading ${url}`)
+
+    console.log(`Reading ${url}`);
+
     const response = await fetch(url, {
         headers: {
             "Content-Type": "application/json",
@@ -74,6 +92,8 @@ async function readOneVaultPage(url, authData) {
             "User-Agent": VARS.client_ua
         }
     });
+
     return await response.json();
+
 }
 

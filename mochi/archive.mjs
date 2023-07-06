@@ -16,6 +16,7 @@ async function archive(app) {
     const destDir = "data/archive/";
     const source = `${srcDir}${app}`;
     const destination = `${destDir}${app}.zip`;
+
     try {
         await access(source);
         await mkdir(destDir, { recursive: true });
@@ -48,7 +49,7 @@ async function archive(app) {
         }
     }
 
-    for (const [index, file] of files.entries()) {
+    for (const file of files) {
         const fileToAdd = new ZipPassThrough(file.slice(file.indexOf(app)));
         console.log(`Zipping ${file}`);
         zip.add(fileToAdd);

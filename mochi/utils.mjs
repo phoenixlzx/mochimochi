@@ -9,33 +9,42 @@ export {
 };
 
 async function processManager(items, threadFunc, maxConcurrency = 1) {
-  let currentIndex = 0;
 
-  function launch() {
-    if (currentIndex === items.length) return Promise.resolve();
+    let currentIndex = 0;
 
-    const item = items[currentIndex++];
-    return threadFunc(item).then(launch);
-  }
+    function launch() {
+        if (currentIndex === items.length) return Promise.resolve();
 
-  const workers = Array.from({ length: maxConcurrency }, launch);
-  await Promise.all(workers);
+        const item = items[currentIndex++];
+
+        return threadFunc(item).then(launch);
+    }
+
+    const workers = Array.from({ length: maxConcurrency }, launch);
+
+    await Promise.all(workers);
 }
 
 // https://github.com/VastBlast/EpicManifestDownloader/
 function blob2hex(blob, reverse = true, returnInt = false) {
+
     let sets = splitStr(blob, 3); //divide all chars into sets of three (array)
     reverse ? sets.reverse() : false;
     let out = '';
+
     for (let val of sets) {
         out += dec2hex(val);
     }
+
     return (returnInt) ? (hex2dec(out, true)) : (out.toUpperCase());
+
 }
 
 function hex2bin(hexSource) {
+
     const bin = Buffer.from(hexSource, 'hex').toString();
     return bin;
+
 }
 
 function bin2hex(binSource) {
