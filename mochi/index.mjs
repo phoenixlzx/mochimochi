@@ -1,4 +1,5 @@
-// get the command-line arguments
+#!/usr/bin/env node
+
 const args = process.argv.slice(2);
 
 import { auth } from './auth.mjs';
