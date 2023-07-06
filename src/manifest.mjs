@@ -21,7 +21,7 @@ async function manifest() {
         "appName": {}
     };
 
-    async function downloadManifestList(vaultData) {
+    async function downloadManifest(vaultData) {
 
         const manifestList = await downloadManifestList(ENDPOINTS.manifest(vaultData.catalogItemId, vaultData.appName), authData);
 
@@ -59,9 +59,9 @@ async function manifest() {
 
     if (authData.access_token && vaultData.length) {
 
-        await utils.processManager(vaultData, downloadManifestList, 10);
-
         try {
+            await fs.mkdir('data/manifest', { recursive: true });
+            await utils.processManager(vaultData, downloadManifest, 10);
             await fs.writeFile('data/manifest.json', JSON.stringify(manifestListCache));
             return manifestListCache;
         } catch (err) {
@@ -163,6 +163,18 @@ async function identifyManifest(manifest, manifestListCache) {
 
 }
 
+async function downloadManifestList(url, authData) {
+
+    const headers = {
+        "Content-Type": "application/json",
+        "Authorization": `${authData.token_type} ${authData.access_token}`,
+        "User-Agent": VARS.client_ua
+    }
+
+    return await utils.fetchJson(url, headers)
+
+}
+
 async function tryDownloadManifest(manifests) {
 
     for (const manifestUri of manifests) {
@@ -182,7 +194,13 @@ async function tryDownloadManifest(manifests) {
         });
 
         if (response.ok) {
-            return await response.json();
+
+            let manifest = await response.json();
+
+            manifest['CloudDir'] = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
+
+            return manifest;
+
         }
 
     }
