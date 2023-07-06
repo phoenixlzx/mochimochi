@@ -13,5 +13,5 @@ export {
 };
 
 async function download(args) {
-    console.log(await vaultCache());
+
 }

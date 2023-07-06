@@ -49,7 +49,7 @@ async function writeAuth(data, file) {
         const authData = JSON.stringify(data, null, 2);
         await fs.writeFile(file, authData, 'utf8');
     } catch (err) {
-        console.error('Error writing file:', err);
+        console.error(`Error saving auth.json: ${err}`);
         return err;
     }
     return;

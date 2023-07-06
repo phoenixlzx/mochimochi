@@ -16,7 +16,7 @@ async function vault() {
         await fs.writeFile('data/vault.json', JSON.stringify(vaultData, null, 2), 'utf8');
         return vaultData;
     } catch (err) {
-        console.error('Error writing file:', err);
+        console.error(`Error saving vault.json: ${err}`);
         return;
     }
 }
@@ -33,7 +33,7 @@ async function vaultCache() {
             console.error('Vault cache not exist.');
             return await vault();
         } else {
-            console.error('Error reading cache:', err);
+            console.error(`Error reading vault cache: ${err}`);
             return;
         }
     }

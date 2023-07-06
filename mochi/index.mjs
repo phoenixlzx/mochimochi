@@ -9,16 +9,18 @@ import { download } from './download.mjs';
 function mochi(args) {
     switch (args[0]) {
         case 'auth':
-            auth(args[1]);
+            auth();
             break;
         case 'vault':
-            vault(args);
+            vault();
             break;
         case 'manifest':
-            manifest(args);
+            // args[1] may be catalogItemId or appName
+            manifest(args[1]);
             break;
         case 'download':
-            download(args);
+            // args[1] maybe manifest file name (without .manifest)
+            download(args[1]);
             break;
         default:
             help();

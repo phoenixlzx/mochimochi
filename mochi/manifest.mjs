@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 
 import { ENDPOINTS, VARS } from './globals.mjs';
 import { auth } from './auth.mjs';
-import { vault } from './vault.mjs';
+import { vaultCache } from './vault.mjs';
 import * as utils from './utils.mjs'
 
 export {
@@ -12,8 +12,13 @@ export {
 };
 
 async function manifest(args) {
-    const vaultData = await vault();
+    const vaultData = await vaultCache();
     const authData = await auth();
+
+    const manifestListCache = {
+        "catalogItemId": {},
+        "appName": {}
+    };
 
     async function getManifestList(vaultData) {
         const manifestList = await downloadManifestList(ENDPOINTS.manifest(vaultData.catalogItemId, vaultData.appName), authData);
@@ -23,9 +28,20 @@ async function manifest(args) {
             try {
                 await fs.writeFile(savePath, JSON.stringify(manifestData));
                 console.log(`Downloaded ${savePath}`);
+                const simplifiedManifest = {
+                    "catalogItemId": vaultData.catalogItemId,
+                    "AppNameString": manifestData.AppNameString,
+                    "BuildVersionString": manifestData.BuildVersionString
+                };
+                if (Array.isArray(manifestListCache['catalogItemId'][vaultData.catalogItemId])) {
+                    manifestListCache['catalogItemId'][vaultData.catalogItemId].push(simplifiedManifest);
+                } else {
+                    manifestListCache['catalogItemId'][vaultData.catalogItemId] = [simplifiedManifest];
+                }
+                manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
             } catch (err) {
                 if (err) {
-                    console.error(`Error saving ${savePath}`);
+                    console.error(`Error saving ${savePath}: ${err}`);
                 }
             }
         }
@@ -33,17 +49,80 @@ async function manifest(args) {
 
     if (authData.access_token && vaultData.length) {
         await utils.processManager(vaultData, getManifestList, 1);
+        try {
+            await fs.writeFile('data/manifest.json', JSON.stringify(manifestListCache));
+            return manifestListCache;
+        } catch (err) {
+            console.error(`Error saving manifest.json: ${err}`);
+        }
     }
 }
 
 async function manifestCache(manifest) {
-    const path = `data/manifest/${manifest}.manifest`
+    let manifestListCache = {};
     try {
-        const data = await fs.readFile(path, 'utf-8');
-        return data;
-    } catch (error) {
-        console.error(`Error reading file at ${path}:`, error);
-        return;
+        manifestListCache = JSON.parse(await fs.readFile('data/manifest.json', 'utf8'));
+    } catch (err) {
+        console.error(`Error reading manifest.json: ${err}`);
+    }
+    const type = await identifyManifest(manifest, manifestListCache);
+
+    if (type !== '404') {
+        let pathList = [];
+        if (type === 'catalogItemId') {
+            for (const element in manifestListCache['catalogItemId'][manifest]) {
+                pathList.push(`data/manifest/${manifestListCache['catalogItemId'][manifest][element].AppNameString}${manifestListCache['catalogItemId'][manifest][element].BuildVersionString}.manifest`);
+            }
+        } else if (type === 'appName') {
+            pathList.push(`data/manifest/${manifest}${manifestListCache['appName'][manifest].BuildVersionString}.manifest`);
+        } else {
+            const ext = (type === 'filenoextension') ? '.manifest' : ''
+            pathList.push(`data/manifest/${manifest}${ext}`);
+        }
+
+        let manifestData = [];
+
+        for (const path in pathList) {
+            try {
+                const data = await JSON.parse(await fs.readFile(pathList[path], 'utf-8'));
+                manifestData.push(data);
+            } catch (err) {
+                console.error(`Error reading ${path}: ${err}`);
+            }
+        }
+
+        return manifestData;
+    } else {
+        return []
+    }
+}
+
+async function identifyManifest(manifest, manifestListCache) {
+    if (manifestListCache.hasOwnProperty('catalogItemId') && manifestListCache.hasOwnProperty('appName')) {
+        if (manifestListCache['catalogItemId'][manifest]) {
+            // is catalogItemId, return a list of apps
+            console.log(`${manifest} is catalogItemId`)
+            return "catalogItemId";
+        }
+        if (manifestListCache['appName'][manifest]) {
+            // is specific app, return object
+            console.log(`${manifest} is appName`)
+            return "appName";
+        }
+        try {
+            await fs.access(`data/manifest/${manifest}`);
+            console.log(`${manifest} is file with ext`)
+            return "file";
+        } catch (err) {
+            try {
+                await fs.access(`data/manifest/${manifest}.manifest`);
+                console.log(`${manifest} is file without ext`)
+                return "filenoextension";
+            } catch (err) {
+                console.error(`${manifest} not found.`)
+                return "404";
+            }
+        }
     }
 }
 
