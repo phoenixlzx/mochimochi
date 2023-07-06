@@ -4,6 +4,7 @@ const args = process.argv.slice(2);
 import { auth } from './auth.mjs';
 import { vault } from './vault.mjs';
 import { manifest } from './manifest.mjs';
+import { download } from './download.mjs';
 
 function mochi(args) {
     switch (args[0]) {
@@ -17,7 +18,7 @@ function mochi(args) {
             manifest(args);
             break;
         case 'download':
-            // TODO
+            download(args);
             break;
         default:
             help();

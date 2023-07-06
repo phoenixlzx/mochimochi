@@ -7,12 +7,13 @@ import { vault } from './vault.mjs';
 import * as utils from './utils.mjs'
 
 export {
-    manifest
+    manifest,
+    manifestCache
 };
 
 async function manifest(args) {
     const vaultData = await vault();
-    const authData = await auth('info');
+    const authData = await auth();
 
     async function getManifestList(vaultData) {
         const manifestList = await downloadManifestList(ENDPOINTS.manifest(vaultData.catalogItemId, vaultData.appName), authData);
@@ -32,6 +33,17 @@ async function manifest(args) {
 
     if (authData.access_token && vaultData.length) {
         await utils.processManager(vaultData, getManifestList, 1);
+    }
+}
+
+async function manifestCache(manifest) {
+    const path = `data/manifest/${manifest}.manifest`
+    try {
+        const data = await fs.readFile(path, 'utf-8');
+        return data;
+    } catch (error) {
+        console.error(`Error reading file at ${path}:`, error);
+        return;
     }
 }
 

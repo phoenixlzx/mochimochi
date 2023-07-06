@@ -6,22 +6,36 @@ import { auth } from './auth.mjs';
 
 export {
     vault,
+    vaultCache
 };
 
-async function vault(args) {
-    const authData = await auth('info');
-    if (authData.access_token && new Date() < new Date(authData.expires_at)) {
-        const vaultData = await readVaultItems(ENDPOINTS.vault, authData);
-        try {
-            await fs.writeFile('data/vault.json', JSON.stringify(vaultData, null, 2), 'utf8');
-            return vaultData;
-        } catch (err) {
-            console.error('Error writing file:', err);
-            return err;
+async function vault() {
+    const authData = await auth();
+    const vaultData = await readVaultItems(ENDPOINTS.vault, authData);
+    try {
+        await fs.writeFile('data/vault.json', JSON.stringify(vaultData, null, 2), 'utf8');
+        return vaultData;
+    } catch (err) {
+        console.error('Error writing file:', err);
+        return;
+    }
+}
+
+async function vaultCache() {
+    try {
+        const cache = await fs.readFile('data/vault.json', 'utf8');
+        if (Array.isArray(cache)) {
+            return cache;
         }
-    } else {
-        console.error("Auth invalid.")
-        return []
+        return [];
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            console.error('Vault cache not exist.');
+            return await vault();
+        } else {
+            console.error('Error reading cache:', err);
+            return;
+        }
     }
 }
 

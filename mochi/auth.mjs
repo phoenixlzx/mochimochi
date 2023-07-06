@@ -9,35 +9,13 @@ export {
     auth
 };
 
-async function auth(args) {
+async function auth() {
     let authData = await readAuth('data/auth.json');
-    switch (args) {
-        case 'refresh':
-            refreshAuth(authData);
-            break;
-        case 'info':
-            return authData;
-        default:
-            if (authData) {
-                const currentDate = new Date();
-                const tokenExpires = new Date(authData.expires_at);
-                const refreshExpires = new Date(authData.refresh_expires_at);
-
-                if (currentDate >= refreshExpires) {
-                    console.log(`
-    Auth expired at ${refreshExpires.toLocaleDateString('en-US', VARS.date_options)}.
-    `)
-                    return login();
-                } else {
-                    console.log(`
-    Auth valid till ${tokenExpires.toLocaleDateString('en-US', VARS.date_options)}
-    Current user: ${authData.displayName}
-    `)
-                    return authData;
-                }
-            } else {
-                login();
-            }
+    if (authData.access_token && new Date() < new Date(authData.expires_at)) {
+        return authData;
+    } else {
+        console.log('Auth invalid.')
+        return await login();
     }
 }
 
@@ -46,10 +24,12 @@ async function login() {
     const authData = await loginAuth(authCode);
     if (authData && authData.access_token) {
         writeAuth(authData, 'data/auth.json');
-        console.log('Auth saved.')
+        console.log('Authorized.')
         return authData;
+    } else {
+        console.error('Authorize failed.');
+        process.exit(1);
     }
-    return;
 }
 
 async function readAuth(file) {
