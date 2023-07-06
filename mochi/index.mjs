@@ -3,9 +3,18 @@
 const args = process.argv.slice(2);
 
 import { auth } from './auth.mjs';
-import { vault } from './vault.mjs';
-import { manifest } from './manifest.mjs';
+import { vault, vaultCache } from './vault.mjs';
+import { manifest, manifestCache } from './manifest.mjs';
 import { download } from './download.mjs';
+
+export {
+    auth,
+    vault,
+    vaultCache,
+    manifest,
+    manifestCache,
+    download
+};
 
 function mochi(args) {
     switch (args[0]) {

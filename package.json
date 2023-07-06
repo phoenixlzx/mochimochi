@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Simple Asset Management for Unreal Engine.",
   "type": "module",
+  "main": "./mochi/index.mjs",
   "bin": {
     "mochi": "./mochi/index.mjs"
   },
