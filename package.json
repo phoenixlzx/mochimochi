@@ -1,7 +1,7 @@
 {
   "name": "mochimochi",
   "version": "1.0.0",
-  "description": "Simplified Asset Management for Teams",
+  "description": "Simple Asset Management for Unreal Engine.",
   "type": "module",
   "directories": {
     "test": "test"
