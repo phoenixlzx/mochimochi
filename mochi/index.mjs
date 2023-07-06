@@ -15,11 +15,9 @@ function mochi(args) {
             vault();
             break;
         case 'manifest':
-            // args[1] may be catalogItemId or appName
-            manifest(args[1]);
+            manifest();
             break;
         case 'download':
-            // args[1] maybe manifest file name (without .manifest)
             download(args[1]);
             break;
         default:
@@ -28,11 +26,25 @@ function mochi(args) {
 }
 
 function help() {
-    let name = 'Kawakyosaki';
     const message = `
-    Hello there,
-    My name is ${name}.
-    Nice to meet you.
+    Usage:
+
+    mochi auth
+      Login and authorize your Epic Account.
+
+    mochi vault
+      Download current vault data and save to disk.
+
+    mochi manifest
+      Download manifest for all assets in vault library.
+
+    mochi download <identifier>
+      Download asset according to identifier.
+      Identifier can be:
+      - catalogItemId
+      - AppNameString
+      - Manifest file (with or without extension)
+      - "all" to download all assets available.
     `;
     console.log(message);
 }
