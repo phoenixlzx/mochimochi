@@ -11,7 +11,7 @@ export {
     manifestCache
 };
 
-async function manifest(args) {
+async function manifest() {
     const vaultData = await vaultCache();
     const authData = await auth();
 
@@ -125,17 +125,6 @@ async function identifyManifest(manifest, manifestListCache) {
             }
         }
     }
-}
-
-async function downloadManifestList(url, authData) {
-    const response = await fetch(url, {
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `${authData.token_type} ${authData.access_token}`,
-            "User-Agent": VARS.client_ua
-        }
-    });
-    return await response.json();
 }
 
 async function tryDownloadManifest(manifests) {

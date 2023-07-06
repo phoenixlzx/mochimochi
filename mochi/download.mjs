@@ -2,11 +2,8 @@ import http from 'http';
 import fs from 'node:fs/promises';
 import path from 'path';
 import zlib from 'zlib';
-import { pipeline } from 'stream';
-import { promisify } from 'util';
 
 import { ENDPOINTS, VARS } from './globals.mjs';
-import { vaultCache } from './vault.mjs';
 import { manifestCache } from './manifest.mjs';
 import * as utils from './utils.mjs'
 
