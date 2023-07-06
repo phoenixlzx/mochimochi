@@ -5,12 +5,12 @@ import { ENDPOINTS, VARS } from './globals.mjs';
 import { auth } from './auth.mjs';
 
 export {
-    vault
+    vault,
 };
 
 async function vault(args) {
     const authData = await auth('info');
-    if (authData.access_token) {
+    if (authData.access_token && new Date() < new Date(authData.expires_at)) {
         const vaultData = await readVaultItems(ENDPOINTS.vault, authData);
         try {
             await fs.writeFile('data/vault.json', JSON.stringify(vaultData, null, 2), 'utf8');
@@ -19,6 +19,9 @@ async function vault(args) {
             console.error('Error writing file:', err);
             return err;
         }
+    } else {
+        console.error("Auth invalid.")
+        return []
     }
 }
 
@@ -33,9 +36,13 @@ async function readVaultItems(url, authData) {
             query = `${query}&cursor=${cursor}`
         }
         let data = await readOneVaultPage(`${url}?${query}`, authData);
-        vaultItems = [...vaultItems, ...data.records];
-        if (data.responseMetadata && data.responseMetadata.nextCursor) {
-            cursor = data.responseMetadata.nextCursor
+        if (Array.isArray(data.records)) {
+            vaultItems = [...vaultItems, ...data.records];
+            if (data.responseMetadata && data.responseMetadata.nextCursor) {
+                cursor = data.responseMetadata.nextCursor
+            } else {
+                hasNext = 0;
+            }
         } else {
             hasNext = 0;
         }
