@@ -36,8 +36,8 @@ async function downloadList(list) {
 }
 
 async function downloadAll(list) {
-    // TODO download all assets
-    console.log(list);
+    console.log('Downloading all assets, this will take a long time and a lot of disk space...');
+    utils.processManager(list, download, 1);
 }
 
 async function getChunkList(manifest) {
