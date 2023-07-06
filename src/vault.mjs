@@ -1,5 +1,4 @@
-import fetch from 'node-fetch';
-import fs from 'node:fs/promises';
+import fs from 'fs/promises';
 
 import { ENDPOINTS, VARS } from './globals.mjs';
 import { auth } from './auth.mjs';
@@ -27,13 +26,14 @@ async function vault() {
 async function vaultCache() {
 
     try {
-        const cache = await fs.readFile('data/vault.json', 'utf8');
+        const cache = JSON.parse(await fs.readFile('data/vault.json', 'utf8'));
 
         if (Array.isArray(cache)) {
             return cache;
         }
 
         return [];
+
     } catch (err) {
 
         if (err.code === 'ENOENT') {
@@ -85,15 +85,13 @@ async function readOneVaultPage(url, authData) {
 
     console.log(`Reading ${url}`);
 
-    const response = await fetch(url, {
-        headers: {
+    const headers = {
             "Content-Type": "application/json",
             "Authorization": `${authData.token_type} ${authData.access_token}`,
             "User-Agent": VARS.client_ua
-        }
-    });
+    }
 
-    return await response.json();
+    return await utils.fetchJson(url, headers)
 
 }
 
