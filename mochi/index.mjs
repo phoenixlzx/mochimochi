@@ -60,6 +60,9 @@ function help() {
       - AppNameString
       - Manifest file (with or without extension)
       - "all" to download all assets available.
+
+    mochi archive <AppNameString>
+      Archive downloaded <AppNameString> asset to a ZIP file.
     `;
     console.log(message);
 }
