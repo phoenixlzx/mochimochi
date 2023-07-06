@@ -13,5 +13,20 @@ export {
 };
 
 async function download(args) {
+    if (args === 'all') {
+        const manifestList = await manifestCache();
+        await downloadAll(manifestList);
+    } else {
+        const manifestList = await manifestCache(args);
+        await downloadList(manifestList);
+    }
+}
 
+async function downloadList(list) {
+    console.log(list);
+}
+
+async function downloadAll(list) {
+    // TODO download all assets
+    console.log(list);
 }

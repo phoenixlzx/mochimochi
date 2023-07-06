@@ -60,41 +60,42 @@ async function manifest(args) {
 
 async function manifestCache(manifest) {
     let manifestListCache = {};
+    let manifestData = [];
     try {
         manifestListCache = JSON.parse(await fs.readFile('data/manifest.json', 'utf8'));
     } catch (err) {
         console.error(`Error reading manifest.json: ${err}`);
     }
-    const type = await identifyManifest(manifest, manifestListCache);
-
-    if (type !== '404') {
-        let pathList = [];
-        if (type === 'catalogItemId') {
-            for (const element in manifestListCache['catalogItemId'][manifest]) {
-                pathList.push(`data/manifest/${manifestListCache['catalogItemId'][manifest][element].AppNameString}${manifestListCache['catalogItemId'][manifest][element].BuildVersionString}.manifest`);
+    if (manifest) {
+        const type = await identifyManifest(manifest, manifestListCache);
+        if (type !== '404') {
+            let pathList = [];
+            if (type === 'catalogItemId') {
+                for (const element in manifestListCache['catalogItemId'][manifest]) {
+                    pathList.push(`data/manifest/${manifestListCache['catalogItemId'][manifest][element].AppNameString}${manifestListCache['catalogItemId'][manifest][element].BuildVersionString}.manifest`);
+                }
+            } else if (type === 'appName') {
+                pathList.push(`data/manifest/${manifest}${manifestListCache['appName'][manifest].BuildVersionString}.manifest`);
+            } else {
+                const ext = (type === 'filenoextension') ? '.manifest' : ''
+                pathList.push(`data/manifest/${manifest}${ext}`);
             }
-        } else if (type === 'appName') {
-            pathList.push(`data/manifest/${manifest}${manifestListCache['appName'][manifest].BuildVersionString}.manifest`);
-        } else {
-            const ext = (type === 'filenoextension') ? '.manifest' : ''
-            pathList.push(`data/manifest/${manifest}${ext}`);
-        }
 
-        let manifestData = [];
-
-        for (const path in pathList) {
-            try {
-                const data = await JSON.parse(await fs.readFile(pathList[path], 'utf-8'));
-                manifestData.push(data);
-            } catch (err) {
-                console.error(`Error reading ${path}: ${err}`);
+            for (const path in pathList) {
+                try {
+                    const data = await JSON.parse(await fs.readFile(pathList[path], 'utf-8'));
+                    manifestData.push(data);
+                } catch (err) {
+                    console.error(`Error reading ${path}: ${err}`);
+                }
             }
         }
-
-        return manifestData;
     } else {
-        return []
+        for (const app in manifestListCache['appName']) {
+            manifestData.push(app);
+        }
     }
+    return manifestData;
 }
 
 async function identifyManifest(manifest, manifestListCache) {
