@@ -27,7 +27,7 @@ function blob2hex(blob, reverse = true, returnInt = false) {
     let sets = splitStr(blob, 3); //divide all chars into sets of three (array)
     reverse ? sets.reverse() : false;
     let out = '';
-    for (var val of sets) {
+    for (let val of sets) {
         out += dec2hex(val);
     }
     return (returnInt) ? (hex2dec(out, true)) : (out.toUpperCase());
@@ -45,7 +45,7 @@ function bin2hex(binSource) {
 
 function splitStr(str, splitLength = 1) {
     let sets = [];
-    for (var i = 0, charsLength = str.length; i < charsLength; i += splitLength) {
+    for (let i = 0, charsLength = str.length; i < charsLength; i += splitLength) {
         sets.push(str.substring(i, i + splitLength));
     }
     return sets;

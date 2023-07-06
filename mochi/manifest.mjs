@@ -20,7 +20,7 @@ async function manifest(args) {
         "appName": {}
     };
 
-    async function getManifestList(vaultData) {
+    async function downloadManifestList(vaultData) {
         const manifestList = await downloadManifestList(ENDPOINTS.manifest(vaultData.catalogItemId, vaultData.appName), authData);
         for (const manifests of manifestList.elements) {
             const manifestData = await tryDownloadManifest(manifests.manifests);
@@ -48,7 +48,7 @@ async function manifest(args) {
     }
 
     if (authData.access_token && vaultData.length) {
-        await utils.processManager(vaultData, getManifestList, 1);
+        await utils.processManager(vaultData, downloadManifestList, 10);
         try {
             await fs.writeFile('data/manifest.json', JSON.stringify(manifestListCache));
             return manifestListCache;
