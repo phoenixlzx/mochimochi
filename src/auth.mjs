@@ -15,8 +15,11 @@ async function auth() {
 
     if (authData.access_token && new Date() < new Date(authData.expires_at)) {
         return authData;
+    } else if (authData.access_token && new Date() < new Date(authData.refresh_expires_at)) {
+        console.log('Auth expired.');
+        return await refreshAuth(authData);
     } else {
-        console.log('Auth invalid.')
+        console.log('Auth invalid.');
         return await login();
     }
 
@@ -99,15 +102,16 @@ async function loginAuth(authCode) {
 
     return await response.json();
 }
-/*
+
 async function refreshAuth(authData) {
-    const resp = await fetch(ENDPOINTS.refresh_token(authData.access_token), {
-        method: 'delete',
+    const response = await fetch(ENDPOINTS.refresh_token, {
         headers: {
             "Content-Type": "application/json",
-            "Authorization": `Basic ${VARS.client_cred_base64}`,
+            "Authorization": `${authData.token_type} ${authData.access_token}`,
             "User-Agent": VARS.client_ua
         }
     });
+    const newAuth = await response.json();
+
+    return newAuth;
 }
-*/
