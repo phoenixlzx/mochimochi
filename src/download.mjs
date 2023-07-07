@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import fs from 'node:fs/promises';
+import fs from 'fs/promises';
 import path from 'path';
 import zlib from 'zlib';
 
@@ -12,6 +12,31 @@ export {
 };
 
 // TODO optimize download & concat process to minimize disk writes
+
+/*
+ * Chunk data format
+ * Header magic: 0xB1FE3AA2
+ * magic = data.slice(0, 4).reverse().toString('hex');
+ * header_version = data.readUInt32LE(4);
+ * header_size = data.readUInt32LE(8);
+ * compressed_size = data.readUInt32LE(12);
+ * guid = '';
+ * for (let i = 16; i < 32; i += 4) {
+ *     guid += data.readUInt32LE(i).toString('hex');
+ * }
+ * hash = data.slice(32, 40).reverse().toString('hex');
+ * stored_as = data[40] ? 1 : 0; // stored_as 1 = zlib compressed,0 = uncompressed
+ * let sha_hash, hash_type, uncompressed_size;
+ * if (header_version >= 2) {
+ *     sha_hash = data.slice(41, 61).toString('hex');
+ *     hash_type = data.slice(61, 62).toString('hex');
+ * }
+ *
+ * if (header_version >= 3) {
+ *     uncompressed_size = data.readUInt32LE(62);
+ * }
+ *
+ */
 
 async function download(args) {
 
@@ -111,14 +136,18 @@ async function concatChunkToFile(fileParams) {
 
     for (const chunk of fileParams.chunks) {
 
-        const compressed = await fs.readFile(chunk.path);
+        const rawData = await fs.readFile(chunk.path);
+        let finalData;
+        const headerSize = rawData[8];
 
-        try {
-            const uncompressed = await decompress(compressed, chunk.path);
-            uncompressed.copy(chunkBuf, chunk.start, chunk.offset, chunk.offset + chunk.size);
-        } catch (err) {
-            console.error(err);
+        if (rawData[40] ? 1 : 0) {
+            finalData = await decompress(rawData.subarray(headerSize), chunk.path);
+        } else {
+            finalData = rawData.subarray(rawData[8]);
         }
+
+        finalData.copy(chunkBuf, chunk.start, chunk.offset, chunk.offset + chunk.size);
+
     }
 
     try {
@@ -131,11 +160,8 @@ async function concatChunkToFile(fileParams) {
 
 async function decompress(data, file) {
 
-    const offset = data[8];
-    const slicedData = data.slice(offset === 120 ? 8 : offset);
-
     return new Promise((resolve, reject) => {
-        zlib.inflate(slicedData, (err, uncompressed) => {
+        zlib.inflate(data, (err, uncompressed) => {
             if (err) {
                 console.error(`Error decompressing ${file}: ${err}`);
                 reject(err);

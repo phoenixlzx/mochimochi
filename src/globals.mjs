@@ -12,9 +12,7 @@ const ENDPOINTS = {
 
     auth_code: "https://account-public-service-prod.ak.epicgames.com/account/api/oauth/token",
 
-    refresh_token: function(token) {
-        return `https://account-public-service-prod.ak.epicgames.com/account/api/oauth/sessions/kill/${token}`;
-    },
+    refresh_token: "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/verify",
 
     vault: "https://library-service.live.use1a.on.epicgames.com/library/api/public/items",
 

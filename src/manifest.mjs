@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import fs from 'node:fs/promises';
+import fs from 'fs/promises';
 
 import { ENDPOINTS, VARS } from './globals.mjs';
 import { auth } from './auth.mjs';
