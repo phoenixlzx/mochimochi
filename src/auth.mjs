@@ -11,7 +11,14 @@ export {
 
 async function auth() {
 
-    let authData = await readAuth('data/auth.json');
+    let authData;
+
+    try {
+        authData = await readAuth('data/auth.json');
+    } catch (err) {
+        console.error(err);
+        return await login();
+    }
 
     if (authData.hasOwnProperty('access_token') && new Date() < new Date(authData.expires_at)) {
         return authData;
