@@ -11,16 +11,9 @@ export {
 
 async function auth() {
 
-    let authData;
+    let authData = await readAuth('data/auth.json');
 
-    try {
-        authData = await readAuth('data/auth.json');
-    } catch (err) {
-        console.error(err);
-        return await login();
-    }
-
-    if (authData.hasOwnProperty('access_token') && new Date() < new Date(authData.expires_at)) {
+    if (authData.access_token && new Date() < new Date(authData.expires_at)) {
         return authData;
     } else if (authData.access_token && new Date() < new Date(authData.refresh_expires_at)) {
         console.log('Auth expired.');
@@ -59,7 +52,7 @@ async function readAuth(file) {
         }
     }
 
-    return;
+    return {};
 
 }
 
