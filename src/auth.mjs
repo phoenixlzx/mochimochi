@@ -13,7 +13,7 @@ async function auth() {
 
     let authData = await readAuth('data/auth.json');
 
-    if (authData.access_token && new Date() < new Date(authData.expires_at)) {
+    if (authData.hasOwnProperty('access_token') && new Date() < new Date(authData.expires_at)) {
         return authData;
     } else if (authData.access_token && new Date() < new Date(authData.refresh_expires_at)) {
         console.log('Auth expired.');
