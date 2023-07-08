@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 
 import { ENDPOINTS, VARS } from './globals.mjs';
 import { auth } from './auth.mjs';
+import * as utils from './utils.mjs'
 
 export {
     vault,
