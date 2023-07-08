@@ -62,10 +62,15 @@ async function manifest() {
         try {
             await fs.mkdir('data/manifest', { recursive: true });
             await utils.processManager(vaultData, downloadManifest, 10);
+        } catch (err) {
+            console.error(`Error saving manifest: ${err}`);
+        }
+
+        try {
             await fs.writeFile('data/manifest.json', JSON.stringify(manifestListCache));
             return manifestListCache;
         } catch (err) {
-            console.error(`Error saving manifest.json: ${err}`);
+            console.error(`Error saving manifest.json ${err}`);
         }
 
     }

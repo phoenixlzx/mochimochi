@@ -16,6 +16,10 @@ const ENDPOINTS = {
 
     vault: "https://library-service.live.use1a.on.epicgames.com/library/api/public/items",
 
+    detail: function(catalogItemId) {
+        return `https://www.unrealengine.com/marketplace/api/assets/item/${catalogItemId}`;
+    },
+
     manifest: function(catalogItemId, appName) {
         return `https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/v2/platform/Windows/namespace/ue/catalogItem/${catalogItemId}/app/${appName}/label/Live`
     },

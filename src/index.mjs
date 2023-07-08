@@ -4,6 +4,7 @@ const args = process.argv.slice(2);
 
 import { auth } from './auth.mjs';
 import { vault, vaultCache } from './vault.mjs';
+import { detail } from './detail.mjs';
 import { manifest, manifestCache } from './manifest.mjs';
 import { download } from './download.mjs';
 import { archive } from './archive.mjs';
@@ -12,6 +13,7 @@ export {
     auth,
     vault,
     vaultCache,
+    detail,
     manifest,
     manifestCache,
     download,
@@ -25,6 +27,9 @@ function mochi(args) {
             break;
         case 'vault':
             vault();
+            break;
+        case 'detail':
+            detail();
             break;
         case 'manifest':
             manifest();
