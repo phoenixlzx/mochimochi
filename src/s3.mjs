@@ -2,19 +2,20 @@ import { S3Client, GetObjectCommand, AbortMultipartUploadCommand } from '@aws-sd
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Upload } from "@aws-sdk/lib-storage";
 import fs from 'fs/promises';
+import { createReadStream } from 'fs';
+
+import config from '../config.mjs';
 
 export {
     upload,
     getUrl
 };
 
-const s3params = {/* TODO read S3 config */ };
-
-const s3Client = new S3Client(s3params);
+const s3Client = new S3Client(config.S3);
 
 async function upload(appName) {
 
-    const zipFilePath = `data/archive/${appName}.zip`;
+    const zipFilePath = `${config.DATA_DIR}/archive/${appName}.zip`;
 
     try {
 
@@ -23,14 +24,14 @@ async function upload(appName) {
         const upload = new Upload({
             client: s3Client,
             params: {
-                Bucket: s3params.BUCKET_NAME,
+                Bucket: config.S3.bucket,
                 Key: `${appName}.zip`,
-                Body: fs.createReadStream(zipFilePath),
+                Body: createReadStream(zipFilePath),
             },
         });
 
         upload.on('httpUploadProgress', (progress) => {
-            console.log(`Uploading ${zipFilePath}: ${Math.round(progress.loaded / progress.total * 100)}%`);
+            console.log(`Uploading ${zipFilePath}: ${Math.cel(progress.loaded / progress.total * 100)}%`);
         });
 
         const result = await upload.done();
@@ -49,7 +50,7 @@ async function upload(appName) {
             });
 
             await s3Client.send(abortCommand);
-            console.log(`Abort upload of ${zipFilePath}`);
+            console.error(`Abort upload of ${zipFilePath}: ${err}`);
         }
 
         return;
@@ -60,7 +61,7 @@ async function upload(appName) {
 
 async function getUrl(appName) {
     const command = new GetObjectCommand({
-        Bucket: s3params.BUCKET_NAME,
+        Bucket: config.S3.bucket,
         Key: `${appName}.zip`,
     });
 
