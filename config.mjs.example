@@ -17,6 +17,6 @@ export default {
   },
 
   // data store path
-  DATA_DIR: process.env.MOCHI_DATA || '/path/to/data/storage'
+  DATA_DIR: '/path/to/data/storage'
 
 };
