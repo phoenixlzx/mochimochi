@@ -39,7 +39,6 @@ export {
  */
 
 async function download(args) {
-
     if (args === 'all') {
         const manifestList = await manifestCache();
         await downloadAll(manifestList);
@@ -47,16 +46,28 @@ async function download(args) {
         const manifestList = await manifestCache(args);
         await downloadList(manifestList);
     }
-
 }
 
 async function downloadList(list) {
 
     for (const manifest of list) {
+
         const chunkList = await getChunkList(manifest);
-        await utils.processManager(chunkList, handleChunkDownload, 10);
+        const downloader = new ProcessManager(chunkList, handleChunkDownload, 10);
+
+        downloader.on('progress', progress => console.log(`Chunk Download Progress: ${progress.toFixed(2)}%`));
+        downloader.on('complete', () => console.log('Chunk download complete.'));
+
+        await downloader.process();
+
         const fileList = await getFileList(manifest);
-        utils.processManager(fileList, concatChunkToFile, 1);
+        const fileConcatenator = new ProcessManager(fileList, concatChunkToFile, 1);
+
+        fileConcatenator.on('progress', progress => console.log(`File Concatenated: ${progress.toFixed(2)}%`));
+        fileConcatenator.on('complete', () => console.log('File concatenation complete.'));
+
+        await fileConcatenator.process();
+
     }
 
 }
@@ -64,7 +75,13 @@ async function downloadList(list) {
 async function downloadAll(list) {
 
     console.log('Downloading all assets, this will take a long time and a lot of disk space...');
-    utils.processManager(list, download, 1);
+
+    const downloader = new ProcessManager(list, download, 1);
+
+    downloader.on('progress', progress => console.log(`Overall Download Progress: ${progress.toFixed(2)}%`));
+    downloader.on('complete', () => console.log('Overall download complete!'));
+
+    await downloader.process();
 
 }
 

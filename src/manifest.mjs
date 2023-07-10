@@ -61,7 +61,10 @@ async function manifest() {
 
         try {
             await fs.mkdir('data/manifest', { recursive: true });
-            await utils.processManager(vaultData, downloadManifest, 10);
+            const manifestDownloader = new utils.ProcessManager(vaultData, downloadManifest, 10);
+            manifestDownloader.on('progress', progress => console.log(`Manifest Download Progress: ${progress.toFixed(2)}%`));
+            manifestDownloader.on('complete', () => console.log('Manifest download complete.'));
+            await downloader.process();
         } catch (err) {
             console.error(`Error saving manifest: ${err}`);
         }
