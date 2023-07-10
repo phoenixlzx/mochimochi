@@ -124,13 +124,13 @@ async function manifestCache(manifest) {
 
             if (type === 'catalogItemId') {
                 for (const element in manifestListCache['catalogItemId'][manifest]) {
-                    pathList.push(`data/manifest/${manifestListCache['catalogItemId'][manifest][element].AppNameString}${manifestListCache['catalogItemId'][manifest][element].BuildVersionString}.manifest`);
+                    pathList.push(`${config.DATA_DIR}/manifest/${manifestListCache['catalogItemId'][manifest][element].AppNameString}${manifestListCache['catalogItemId'][manifest][element].BuildVersionString}.manifest`);
                 }
             } else if (type === 'appName') {
-                pathList.push(`data/manifest/${manifest}${manifestListCache['appName'][manifest].BuildVersionString}.manifest`);
+                pathList.push(`${config.DATA_DIR}/manifest/${manifest}${manifestListCache['appName'][manifest].BuildVersionString}.manifest`);
             } else {
                 const ext = (type === 'filenoextension') ? '.manifest' : ''
-                pathList.push(`data/manifest/${manifest}${ext}`);
+                pathList.push(`${config.DATA_DIR}/manifest/${manifest}${ext}`);
             }
 
             for (const path in pathList) {
