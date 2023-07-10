@@ -2,7 +2,7 @@ import EventEmitter from 'events';
 import fetch from 'node-fetch';
 
 export {
-    processManager,
+    ProcessManager,
     fetchJson,
     blob2hex,
     hex2bin,
@@ -12,21 +12,34 @@ export {
     hex2dec
 };
 
-async function processManager(items, threadFunc, maxConcurrency = 1) {
+class ProcessManager extends EventEmitter {
 
-    let currentIndex = 0;
-
-    function launch() {
-        if (currentIndex === items.length) return Promise.resolve();
-
-        const item = items[currentIndex++];
-
-        return threadFunc(item).then(launch);
+    constructor(items, threadFunc, maxConcurrency = 1) {
+        super();
+        this.items = items;
+        this.threadFunc = threadFunc;
+        this.maxConcurrency = maxConcurrency;
+        this.currentIndex = 0;
+        this.completedCount = 0;
     }
 
-    const workers = Array.from({ length: maxConcurrency }, launch);
+    async processItem() {
+        if (this.currentIndex < this.items.length) {
+            const item = this.items[this.currentIndex++];
+            await this.threadFunc(item);
+            this.completedCount++;
+            this.emit('progress', this.completedCount / this.items.length);
+            if (this.completedCount === this.items.length) {
+                this.emit('complete');
+            }
+            return this.processItem();
+        }
+    }
 
-    await Promise.all(workers);
+    async process() {
+        const workers = Array.from({ length: this.maxConcurrency }, () => this.processItem());
+        return await Promise.all(workers);
+    }
 
 }
 

@@ -23,6 +23,12 @@ async function manifest() {
         "appName": {}
     };
 
+    try {
+        await fs.access(`${config.DATA_DIR}/manifest`);
+    } catch (err) {
+        await fs.mkdir(`${config.DATA_DIR}/manifest`, { recursive: true });
+    }
+
     async function downloadManifest(vaultData) {
 
         const manifestList = await downloadManifestList(ENDPOINTS.manifest(vaultData.catalogItemId, vaultData.appName), authData);
@@ -32,20 +38,12 @@ async function manifest() {
             const manifestData = await tryDownloadManifest(manifests.manifests);
             const savePath = `${config.DATA_DIR}/manifest/${manifestData.AppNameString}${manifestData.BuildVersionString}.manifest`
 
-            try {
+            await fs.writeFile(savePath, JSON.stringify(manifestData));
 
-                await fs.writeFile(savePath, JSON.stringify(manifestData));
-
-                console.log(`Downloaded ${savePath}`);
-
-            } catch (err) {
-
-                console.error(`Error saving ${savePath}: ${err}`);
-
-            }
+            console.log(`Downloaded ${savePath}`);
 
             const simplifiedManifest = {
-                "catalogItemId": vaultData.catalogItemId,
+                "catalogItemId": manifestData.catalogItemId,
                 "AppNameString": manifestData.AppNameString,
                 "BuildVersionString": manifestData.BuildVersionString
             };
@@ -58,8 +56,6 @@ async function manifest() {
 
             manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
 
-            console.log(`Adding manifest: ${vaultData.catalogItemId}/${manifestData.AppNameString}/${manifestData.BuildVersionString}.\nManifest now have ${Object.keys(manifestListCache['catalogItemId']).length} ID-based entries and ${Object.keys(manifestListCache['appName']).length} based entries.`);
-
         }
 
     }
@@ -68,12 +64,12 @@ async function manifest() {
 
         try {
 
-            try {
-                await fs.access(`${config.DATA_DIR}/manifest`);
-            } catch (err) {
-                await fs.mkdir(`${config.DATA_DIR}/manifest`, { recursive: true });
-            }
-            await utils.processManager(vaultData, downloadManifest, 10);
+            const manifestDownloader = new utils.ProcessManager(vaultData, downloadManifest, 10);
+
+            manifestDownloader.on('progress', progress => console.log(`Manifest Download Progress: ${Math.ceil(progress * 100)}%`));
+            manifestDownloader.on('complete', () => console.log('Manifest download complete.'));
+
+            await manifestDownloader.process();
 
         } catch (err) {
 
@@ -84,6 +80,7 @@ async function manifest() {
         try {
 
             await fs.writeFile(`${config.DATA_DIR}/manifest.json`, JSON.stringify(manifestListCache));
+
             return manifestListCache;
 
         } catch (err) {
@@ -239,6 +236,11 @@ async function tryDownloadManifest(manifests) {
             manifest['CloudDir'] = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
 
             return manifest;
+
+        } else {
+
+            console.error(response.error);
+            return {};
 
         }
 
