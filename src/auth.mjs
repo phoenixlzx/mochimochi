@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { stdin as input, stdout as output } from 'node:process';
 
 import { ENDPOINTS, VARS } from './globals.mjs';
+import config from '../config.mjs';
 
 export {
     auth
@@ -11,7 +12,19 @@ export {
 
 async function auth() {
 
-    let authData = await readAuth('data/auth.json');
+    const authFile = `${config.DATA_DIR}/auth.json`;
+    let authData = {};
+
+    try {
+
+        await fs.access(authFile);
+        authData = await readAuth(`${config.DATA_DIR}/auth.json`);
+
+    } catch (err) {
+
+        console.error(`Error accessing ${config.DATA_DIR}/auth.json`);
+
+    }
 
     if (authData.access_token && new Date() < new Date(authData.expires_at)) {
         return authData;
@@ -31,7 +44,7 @@ async function login() {
     const authData = await loginAuth(authCode);
 
     if (authData && authData.access_token) {
-        writeAuth(authData, 'data/auth.json');
+        writeAuth(authData, `${config.DATA_DIR}/auth.json`);
         console.log('Authorized.')
         return authData;
     } else {

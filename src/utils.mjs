@@ -25,26 +25,20 @@ class ProcessManager extends EventEmitter {
 
     async processItem() {
         if (this.currentIndex < this.items.length) {
-
             const item = this.items[this.currentIndex++];
-
             await this.threadFunc(item);
-
             this.completedCount++;
-
             this.emit('progress', this.completedCount / this.items.length);
-
             if (this.completedCount === this.items.length) {
                 this.emit('complete');
             }
-
             return this.processItem();
         }
     }
 
     async process() {
         const workers = Array.from({ length: this.maxConcurrency }, () => this.processItem());
-        await Promise.all(workers);
+        return await Promise.all(workers);
     }
 
 }
