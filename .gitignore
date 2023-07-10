@@ -4,3 +4,5 @@
 node_modules
 test/*
 data/*
+
+config.js
