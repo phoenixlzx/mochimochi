@@ -8,6 +8,7 @@ import { detail } from './detail.mjs';
 import { manifest, manifestCache } from './manifest.mjs';
 import { download } from './download.mjs';
 import { archive } from './archive.mjs';
+import { server } from './server.mjs';
 
 export {
     auth,
@@ -39,6 +40,9 @@ function mochi(args) {
             break;
         case 'archive':
             archive(args[1]);
+            break;
+        case 'server':
+            server();
             break;
         default:
             help();
