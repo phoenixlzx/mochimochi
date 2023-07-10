@@ -67,26 +67,10 @@ async function download(args) {
             console.log(`Downloading ${index + 1}/${manifest.length} asset: ${manifest.AppNameString}`);
 
             const chunkList = await getChunkList(manifest);
-            const downloader = new utils.ProcessManager(chunkList, handleChunkDownload, 10);
-
-            downloader.on('progress', progress => {
-                console.log(`Chunk Download Progress: ${Math.ceil(progress * 100)}%`)
-            });
-            downloader.on('complete', () => {
-                console.log('Chunk download complete.')
-            });
-
-            await downloader.process();
+            await utils.processManager(chunkList, handleChunkDownload, 10);
 
             const fileList = await getFileList(manifest);
-            const fileConcatenator = new utils.ProcessManager(fileList, concatChunkToFile, 1);
-
-            fileConcatenator.on('progress', progress => {
-                console.log(`File Concatenated: ${Math.ceil(progress * 100)}%`)
-            });
-            fileConcatenator.on('complete', () => console.log('File concatenation complete.'));
-
-            await fileConcatenator.process();
+            await utils.processManager(fileList, concatChunkToFile, 1);
 
             for (const chunk of chunkList) {
                 const chunkFile = (`chunk/${chunk.slice(chunk.lastIndexOf('_') + 1)}`);
@@ -103,12 +87,7 @@ async function downloadAll(list) {
 
     console.log('Downloading all assets, this will take a long time and a lot of disk space...');
 
-    const downloader = new utils.ProcessManager(list, download, 1);
-
-    downloader.on('progress', progress => console.log(`Download Progress: ${Math.ceil(progress * 100)}%`));
-    downloader.on('complete', () => console.log('Download complete!'));
-
-    return await downloader.process();
+    await utils.processManager(list, download, 1);
 
 }
 

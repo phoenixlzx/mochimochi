@@ -23,12 +23,6 @@ async function manifest() {
         "appName": {}
     };
 
-    try {
-        await fs.access(`${config.DATA_DIR}/manifest`);
-    } catch (err) {
-        await fs.mkdir(`${config.DATA_DIR}/manifest`, { recursive: true });
-    }
-
     async function downloadManifest(vaultData) {
 
         const manifestList = await downloadManifestList(ENDPOINTS.manifest(vaultData.catalogItemId, vaultData.appName), authData);
@@ -56,7 +50,6 @@ async function manifest() {
                 "BuildVersionString": manifestData.BuildVersionString
             };
 
-            console.log(`Adding manifest: ${vaultData.catalogItemId}/${manifestData.AppNameString}/${manifestData.BuildVersionString}`);
             if (Array.isArray(manifestListCache['catalogItemId'][vaultData.catalogItemId])) {
                 manifestListCache['catalogItemId'][vaultData.catalogItemId].push(simplifiedManifest);
             } else {
@@ -64,6 +57,8 @@ async function manifest() {
             }
 
             manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
+
+            console.log(`Adding manifest: ${vaultData.catalogItemId}/${manifestData.AppNameString}/${manifestData.BuildVersionString}. Manifest now have ${manifestListCache['catalogItemId'].length} ID-based entries and ${manifestListCache['appName'].length} based entries.`);
 
         }
 
@@ -73,12 +68,12 @@ async function manifest() {
 
         try {
 
-            const manifestDownloader = new utils.ProcessManager(vaultData, downloadManifest, 10);
-
-            manifestDownloader.on('progress', progress => console.log(`Manifest Download Progress: ${Math.ceil(progress * 100)}%`));
-            manifestDownloader.on('complete', () => console.log('Manifest download complete.'));
-
-            await manifestDownloader.process();
+            try {
+                await fs.access(`${config.DATA_DIR}/manifest`);
+            } catch (err) {
+                await fs.mkdir(`${config.DATA_DIR}/manifest`, { recursive: true });
+            }
+            await utils.processManager(vaultData, downloadManifest, 10);
 
         } catch (err) {
 
