@@ -6,6 +6,8 @@ import { auth } from './auth.mjs';
 import { vaultCache } from './vault.mjs';
 import * as utils from './utils.mjs'
 
+import config from '../config.mjs';
+
 export {
     manifest,
     manifestCache
@@ -21,6 +23,12 @@ async function manifest() {
         "appName": {}
     };
 
+    try {
+        await fs.access(`${config.DATA_DIR}/manifest`);
+    } catch (err) {
+        await fs.mkdir(`${config.DATA_DIR}/manifest`, {recursive: true});
+    }
+
     async function downloadManifest(vaultData) {
 
         const manifestList = await downloadManifestList(ENDPOINTS.manifest(vaultData.catalogItemId, vaultData.appName), authData);
@@ -28,7 +36,7 @@ async function manifest() {
         for (const manifests of manifestList.elements) {
 
             const manifestData = await tryDownloadManifest(manifests.manifests);
-            const savePath = `data/manifest/${manifestData.AppNameString}${manifestData.BuildVersionString}.manifest`
+            const savePath = `${config.DATA_DIR}/manifest/${manifestData.AppNameString}${manifestData.BuildVersionString}.manifest`
 
             try {
 
@@ -60,20 +68,29 @@ async function manifest() {
     if (authData.access_token && vaultData.length) {
 
         try {
-            await fs.mkdir('data/manifest', { recursive: true });
+
             const manifestDownloader = new utils.ProcessManager(vaultData, downloadManifest, 10);
-            manifestDownloader.on('progress', progress => console.log(`Manifest Download Progress: ${progress.toFixed(2)}%`));
+
+            manifestDownloader.on('progress', progress => console.log(`Manifest Download Progress: ${Math.ceil(progress * 100)}%`));
             manifestDownloader.on('complete', () => console.log('Manifest download complete.'));
+
             await downloader.process();
+
         } catch (err) {
+
             console.error(`Error saving manifest: ${err}`);
+
         }
 
         try {
-            await fs.writeFile('data/manifest.json', JSON.stringify(manifestListCache));
+
+            await fs.writeFile(`${config.DATA_DIR}/manifest.json`, JSON.stringify(manifestListCache));
             return manifestListCache;
+
         } catch (err) {
+
             console.error(`Error saving manifest.json ${err}`);
+
         }
 
     }
@@ -86,9 +103,14 @@ async function manifestCache(manifest) {
     let manifestData = [];
 
     try {
-        manifestListCache = JSON.parse(await fs.readFile('data/manifest.json', 'utf8'));
+
+        manifestListCache = JSON.parse(await fs.readFile(`${config.DATA_DIR}/manifest.json`, 'utf8'));
+
     } catch (err) {
+
         console.error(`Error reading manifest.json: ${err}`);
+        return manifestListCache;
+
     }
 
     if (manifest) {
@@ -113,10 +135,14 @@ async function manifestCache(manifest) {
             for (const path in pathList) {
 
                 try {
+
                     const data = await JSON.parse(await fs.readFile(pathList[path], 'utf-8'));
                     manifestData.push(data);
+
                 } catch (err) {
+
                     console.error(`Error reading ${path}: ${err}`);
+
                 }
 
             }
@@ -151,18 +177,24 @@ async function identifyManifest(manifest, manifestListCache) {
         }
 
         try {
-            await fs.access(`data/manifest/${manifest}`);
+
+            await fs.access(`${config.DATA_DIR}/manifest/${manifest}`);
             console.log(`${manifest} is file with ext`)
             return "file";
+
         } catch (err) {
 
             try {
-                await fs.access(`data/manifest/${manifest}.manifest`);
+
+                await fs.access(`${config.DATA_DIR}/manifest/${manifest}.manifest`);
                 console.log(`${manifest} is file without ext`)
                 return "filenoextension";
+
             } catch (err) {
+
                 console.error(`${manifest} not found.`)
                 return "404";
+
             }
 
         }

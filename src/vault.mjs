@@ -4,6 +4,8 @@ import { ENDPOINTS, VARS } from './globals.mjs';
 import { auth } from './auth.mjs';
 import * as utils from './utils.mjs'
 
+import config from '../config.mjs';
+
 export {
     vault,
     vaultCache
@@ -15,11 +17,15 @@ async function vault() {
     const vaultData = await readVaultItems(ENDPOINTS.vault, authData);
 
     try {
-        await fs.writeFile('data/vault.json', JSON.stringify(vaultData, null, 2), 'utf8');
+
+        await fs.writeFile(`${config.DATA_DIR}/vault.json`, JSON.stringify(vaultData, null, 2), 'utf8');
         return vaultData;
+
     } catch (err) {
+
         console.error(`Error saving vault.json: ${err}`);
         return;
+
     }
 
 }
@@ -27,7 +33,8 @@ async function vault() {
 async function vaultCache() {
 
     try {
-        const cache = JSON.parse(await fs.readFile('data/vault.json', 'utf8'));
+
+        const cache = JSON.parse(await fs.readFile(`${config.DATA_DIR}/vault.json`, 'utf8'));
 
         if (Array.isArray(cache)) {
             return cache;

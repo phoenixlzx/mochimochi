@@ -5,7 +5,11 @@ import zlib from 'zlib';
 
 import { VARS } from './globals.mjs';
 import { manifestCache } from './manifest.mjs';
+import { clean } from './clean.mjs';
+
 import * as utils from './utils.mjs'
+
+import config from '../config.mjs';
 
 export {
     download
@@ -39,34 +43,57 @@ export {
  */
 
 async function download(args) {
-    if (args === 'all') {
-        const manifestList = await manifestCache();
-        await downloadAll(manifestList);
-    } else {
-        const manifestList = await manifestCache(args);
-        await downloadList(manifestList);
+
+    try {
+        await fs.access(`${config.DATA_DIR}/chunk`);
+        await fs.access(`${config.DATA_DIR}/asset`);
+    } catch (err) {
+        console.error(`Error accessing download directories: ${err}`);
+        await fs.mkdir(`${config.DATA_DIR}/chunk`, { recursive: true });
+        await fs.mkdir(`${config.DATA_DIR}/asset`, { recursive: true });
     }
-}
 
-async function downloadList(list) {
+    if (args === 'all') {
 
-    for (const manifest of list) {
+        const manifestList = await manifestCache();
+        return await downloadAll(manifestList);
 
-        const chunkList = await getChunkList(manifest);
-        const downloader = new ProcessManager(chunkList, handleChunkDownload, 10);
+    } else {
 
-        downloader.on('progress', progress => console.log(`Chunk Download Progress: ${progress.toFixed(2)}%`));
-        downloader.on('complete', () => console.log('Chunk download complete.'));
+        const manifestList = await manifestCache(args);
 
-        await downloader.process();
+        for (const [index, manifest] of manifestList.entries()) {
 
-        const fileList = await getFileList(manifest);
-        const fileConcatenator = new ProcessManager(fileList, concatChunkToFile, 1);
+            console.log(`Downloading ${index + 1}/${manifest.length} asset: ${manifest.AppNameString}`);
 
-        fileConcatenator.on('progress', progress => console.log(`File Concatenated: ${progress.toFixed(2)}%`));
-        fileConcatenator.on('complete', () => console.log('File concatenation complete.'));
+            const chunkList = await getChunkList(manifest);
+            const downloader = new utils.ProcessManager(chunkList, handleChunkDownload, 10);
 
-        await fileConcatenator.process();
+            downloader.on('progress', progress => {
+                console.log(`Chunk Download Progress: ${Math.ceil(progress * 100)}%`)
+            });
+            downloader.on('complete', () => {
+                console.log('Chunk download complete.')
+            });
+
+            await downloader.process();
+
+            const fileList = await getFileList(manifest);
+            const fileConcatenator = new utils.ProcessManager(fileList, concatChunkToFile, 1);
+
+            fileConcatenator.on('progress', progress => {
+                console.log(`File Concatenated: ${Math.ceil(progress * 100)}%`)
+            });
+            fileConcatenator.on('complete', () => console.log('File concatenation complete.'));
+
+            await fileConcatenator.process();
+
+            for (const chunk of chunkList) {
+                const chunkFile = (`chunk/${chunk.slice(chunk.lastIndexOf('_') + 1)}`);
+                await clean(chunkFile);
+            }
+
+        }
 
     }
 
@@ -76,12 +103,12 @@ async function downloadAll(list) {
 
     console.log('Downloading all assets, this will take a long time and a lot of disk space...');
 
-    const downloader = new ProcessManager(list, download, 1);
+    const downloader = new utils.ProcessManager(list, download, 1);
 
-    downloader.on('progress', progress => console.log(`Overall Download Progress: ${progress.toFixed(2)}%`));
-    downloader.on('complete', () => console.log('Overall download complete!'));
+    downloader.on('progress', progress => console.log(`Download Progress: ${Math.ceil(progress * 100)}%`));
+    downloader.on('complete', () => console.log('Download complete!'));
 
-    await downloader.process();
+    return await downloader.process();
 
 }
 
@@ -98,13 +125,16 @@ async function getChunkList(manifest) {
 }
 
 async function handleChunkDownload(url) {
-
     console.log(`Downloading ${url}`);
-
     const file = url.slice(url.lastIndexOf('_') + 1);
-    await writeBufferToFile(`data/chunk/${file}`, await downloadUrl(url));
-
+    try {
+        await writeBufferToFile(`${config.DATA_DIR}/chunk/${file}`, await downloadUrl(url));
+        console.log(`Downloaded ${url}`);
+    } catch (error) {
+        console.error(`Error downloading ${url}: ${error.message}`);
+    }
 }
+
 
 async function getFileList(manifest) {
 
@@ -128,7 +158,7 @@ async function getFileList(manifest) {
             }
 
             chunks.push({
-                path: `data/chunk/${chunk.Guid}.chunk`,
+                path: `${config.DATA_DIR}/chunk/${chunk.Guid}.chunk`,
                 start: start,
                 offset: offset,
                 size: size
@@ -138,7 +168,7 @@ async function getFileList(manifest) {
         }
 
         fileList.push({
-            fileName: `data/asset/${manifest.AppNameString}/${file.Filename}`,
+            fileName: `${config.DATA_DIR}/asset/${manifest.AppNameString}/${file.Filename}`,
             fileSize: fileSize,
             chunks: chunks
         });
