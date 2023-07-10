@@ -50,6 +50,7 @@ async function manifest() {
                     "BuildVersionString": manifestData.BuildVersionString
                 };
 
+                console.log(`Adding manifest: ${vaultData.catalogItemId}/${manifestData.AppNameString}/${manifestData.BuildVersionString}`);
                 if (Array.isArray(manifestListCache['catalogItemId'][vaultData.catalogItemId])) {
                     manifestListCache['catalogItemId'][vaultData.catalogItemId].push(simplifiedManifest);
                 } else {
