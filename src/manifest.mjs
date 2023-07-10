@@ -74,7 +74,7 @@ async function manifest() {
             manifestDownloader.on('progress', progress => console.log(`Manifest Download Progress: ${Math.ceil(progress * 100)}%`));
             manifestDownloader.on('complete', () => console.log('Manifest download complete.'));
 
-            await downloader.process();
+            await manifestDownloader.process();
 
         } catch (err) {
 
