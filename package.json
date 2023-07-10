@@ -23,6 +23,8 @@
   "homepage": "https://github.com/phoenixlzx/mochimochi#readme",
   "dependencies": {
     "@root/walk": "^1.1.0",
+    "aws-sdk": "^2.1413.0",
+    "fastify": "^4.19.2",
     "fflate": "^0.8.0",
     "node-fetch": "^3.3.1"
   }
