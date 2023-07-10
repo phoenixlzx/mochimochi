@@ -1,10 +1,13 @@
-import fastify from 'fastify';
+import Fastify from 'fastify'
 import * as fs from 'fs/promises';
 
-import download from 'download.mjs';
-import archive from 'archive.mjs';
-import {upload, getSignedUrl } from 's3.mjs';
+import { download } from './download.mjs';
+import { archive } from './archive.mjs';
+import { upload, getUrl } from './s3.mjs';
 
+const fastify = Fastify({
+    logger: true
+});
 
 const appNameSantizer = new RegExp(/^[\w-.]+$/);
 
@@ -49,7 +52,7 @@ fastify.get('/api/download/:appName', async (request, reply) => {
         return reply.code(200).send(status);
     }
 
-    const url = await getSignedUrl(appName);
+    const url = await getUrl(appName);
     status.url = url;
 
     reply.code(200).send(status);
@@ -141,7 +144,7 @@ async function handleTasks(appName, statusFile) {
     }
 }
 
-fastify.listen(3000, (err, address) => {
+fastify.listen({port: 3000}, (err, address) => {
     if (err) throw err;
     fastify.log.info(`server listening on ${address}`);
 });
