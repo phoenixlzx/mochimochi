@@ -33,29 +33,34 @@ async function manifest() {
 
         const manifestList = await downloadManifestList(ENDPOINTS.manifest(vaultData.catalogItemId, vaultData.appName), authData);
 
-        for (const manifests of manifestList.elements) {
+        if (manifestList && Array.isArray(manifestList.elements) && manifestList.elements.length > 0) {
 
-            const manifestData = await tryDownloadManifest(manifests.manifests);
-            if (manifestData) {
-                const savePath = `${config.DATA_DIR}/manifest/${manifestData.AppNameString}${manifestData.BuildVersionString}.manifest`
+            for (const manifests of manifestList.elements) {
 
-                await fs.writeFile(savePath, JSON.stringify(manifestData));
+                const manifestData = await tryDownloadManifest(manifests.manifests);
 
-                console.log(`Downloaded ${savePath}`);
+                if (manifestData.ManifestFileVersion) {
+                    const savePath = `${config.DATA_DIR}/manifest/${manifestData.AppNameString}${manifestData.BuildVersionString}.manifest`
 
-                const simplifiedManifest = {
-                    "catalogItemId": manifestData.catalogItemId,
-                    "AppNameString": manifestData.AppNameString,
-                    "BuildVersionString": manifestData.BuildVersionString
-                };
+                    await fs.writeFile(savePath, JSON.stringify(manifestData));
 
-                if (Array.isArray(manifestListCache['catalogItemId'][vaultData.catalogItemId])) {
-                    manifestListCache['catalogItemId'][vaultData.catalogItemId].push(simplifiedManifest);
-                } else {
-                    manifestListCache['catalogItemId'][vaultData.catalogItemId] = [simplifiedManifest];
+                    console.log(`Downloaded ${savePath}`);
+
+                    const simplifiedManifest = {
+                        "catalogItemId": manifestData.catalogItemId,
+                        "AppNameString": manifestData.AppNameString,
+                        "BuildVersionString": manifestData.BuildVersionString
+                    };
+
+                    if (Array.isArray(manifestListCache['catalogItemId'][vaultData.catalogItemId])) {
+                        manifestListCache['catalogItemId'][vaultData.catalogItemId].push(simplifiedManifest);
+                    } else {
+                        manifestListCache['catalogItemId'][vaultData.catalogItemId] = [simplifiedManifest];
+                    }
+
+                    manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
                 }
 
-                manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
             }
 
         }
@@ -102,6 +107,7 @@ async function manifestCache(manifest) {
 
     try {
 
+        console.log(`Writing manifest.json`);
         manifestListCache = JSON.parse(await fs.readFile(`${config.DATA_DIR}/manifest.json`, 'utf8'));
 
     } catch (err) {
@@ -231,11 +237,22 @@ async function tryDownloadManifest(manifests) {
             }
         });
 
+        let manifest = {};
+
         if (response.ok) {
 
-            let manifest = await response.json();
-            manifest['CloudDir'] = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
-            return manifest;
+            try {
+
+                manifest = await response.json();
+                manifest['CloudDir'] = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
+                return manifest;
+
+            } catch (err) {
+
+                console.error(`Error downloading from ${url}: ${err}`);
+                return {};
+
+            }
 
         }
 
