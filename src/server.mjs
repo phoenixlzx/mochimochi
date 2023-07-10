@@ -78,13 +78,6 @@ fastify.get('/api/download/:appName', async (request, reply) => {
 
     let url = new URL(await getUrl(appName));
 
-    console.log(JSON.stringify(url));
-
-    if (config.DOWNLOAD) {
-        console.log('replacing download link')
-        url.hostname = config.DOWNLOAD;
-    }
-
     status.url = url;
 
     reply.code(200).send(status);
