@@ -58,7 +58,7 @@ async function manifest() {
 
             manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
 
-            console.log(`Adding manifest: ${vaultData.catalogItemId}/${manifestData.AppNameString}/${manifestData.BuildVersionString}. Manifest now have ${manifestListCache['catalogItemId'].keys.length} ID-based entries and ${manifestListCache['appName'].keys.length} based entries.`);
+            console.log(`Adding manifest: ${vaultData.catalogItemId}/${manifestData.AppNameString}/${manifestData.BuildVersionString}.\nManifest now have ${Object.keys(manifestListCache['catalogItemId']).length} ID-based entries and ${Object.keys(manifestListCache['appName']).length} based entries.`);
 
         }
 
