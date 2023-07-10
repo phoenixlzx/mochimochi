@@ -1,0 +1,16 @@
+export default {
+
+  // nodejs defaults
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  PORT: process.env.PORT || 3000,
+
+  // s3-related
+  S3_ENDPOINT: process.env.MOCHI_S3_ENDPOINT || 's3.us-east-2.amazonaws.com',
+  S3_KEYID: process.env.MOCHI_S3_KEYID || 'my-key-id',
+  S3_KEYSECRET: process.env.MOCHI_S3_KEYSECRET || 'my-key-secret',
+  S3_BUCKET: process.env.MOCHI_S3_BUCKET || 'my-bucket'
+
+  // data store path
+  DATA_DIR: process.env.MOCHI_DATA || 'data'
+
+};
