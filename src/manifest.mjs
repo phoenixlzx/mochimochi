@@ -26,7 +26,7 @@ async function manifest() {
     try {
         await fs.access(`${config.DATA_DIR}/manifest`);
     } catch (err) {
-        await fs.mkdir(`${config.DATA_DIR}/manifest`, {recursive: true});
+        await fs.mkdir(`${config.DATA_DIR}/manifest`, { recursive: true });
     }
 
     async function downloadManifest(vaultData) {
@@ -44,24 +44,27 @@ async function manifest() {
 
                 console.log(`Downloaded ${savePath}`);
 
-                const simplifiedManifest = {
-                    "catalogItemId": vaultData.catalogItemId,
-                    "AppNameString": manifestData.AppNameString,
-                    "BuildVersionString": manifestData.BuildVersionString
-                };
-
-                console.log(`Adding manifest: ${vaultData.catalogItemId}/${manifestData.AppNameString}/${manifestData.BuildVersionString}`);
-                if (Array.isArray(manifestListCache['catalogItemId'][vaultData.catalogItemId])) {
-                    manifestListCache['catalogItemId'][vaultData.catalogItemId].push(simplifiedManifest);
-                } else {
-                    manifestListCache['catalogItemId'][vaultData.catalogItemId] = [simplifiedManifest];
-                }
-
-                manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
-
             } catch (err) {
+
                 console.error(`Error saving ${savePath}: ${err}`);
+
             }
+
+            const simplifiedManifest = {
+                "catalogItemId": vaultData.catalogItemId,
+                "AppNameString": manifestData.AppNameString,
+                "BuildVersionString": manifestData.BuildVersionString
+            };
+
+            console.log(`Adding manifest: ${vaultData.catalogItemId}/${manifestData.AppNameString}/${manifestData.BuildVersionString}`);
+            if (Array.isArray(manifestListCache['catalogItemId'][vaultData.catalogItemId])) {
+                manifestListCache['catalogItemId'][vaultData.catalogItemId].push(simplifiedManifest);
+            } else {
+                manifestListCache['catalogItemId'][vaultData.catalogItemId] = [simplifiedManifest];
+            }
+
+            manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
+
         }
 
     }
