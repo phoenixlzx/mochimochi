@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 
 export {
     upload,
-    getSignedUrl
+    getUrl
 };
 
 const s3params = {/* TODO read S3 config */ };
@@ -58,7 +58,7 @@ async function upload(appName) {
 
 }
 
-async function getSignedUrl(appName) {
+async function getUrl(appName) {
     const command = new GetObjectCommand({
         Bucket: s3params.BUCKET_NAME,
         Key: `${appName}.zip`,
