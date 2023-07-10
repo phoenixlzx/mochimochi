@@ -32,6 +32,21 @@ fastify.get('/api/request/:appName', async (request, reply) => {
 
     try {
 
+        const status = await readStatus(statusFile);
+        if (status != 'error') {
+            return reply.code(200).send(status);
+        }
+
+    } catch (err) {
+
+        if (err.code === 'ENOENT') {
+            console.error(`Server: ${appName} status not found. Now starting.`)
+        }
+
+    }
+
+    try {
+
         await updateStatus(statusFile, { status: 'downloading', progress: 0, url: '' });
 
         handleTasks(appName, statusFile);
