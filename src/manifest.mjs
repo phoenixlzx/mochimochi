@@ -249,8 +249,8 @@ async function tryDownloadManifest(manifests) {
 
             } catch (err) {
 
+                // server response is ok but returned error?
                 console.error(`Error downloading from ${url}: ${err}`);
-                return {};
 
             }
 
