@@ -220,9 +220,9 @@ async function downloadManifestList(url, authData) {
 }
 
 async function tryDownloadManifest(manifests) {
+    let errorMessages = [];
 
     for (const manifestUri of manifests) {
-
         const query = new URLSearchParams();
 
         for (const param of manifestUri.queryParams) {
@@ -237,25 +237,21 @@ async function tryDownloadManifest(manifests) {
             }
         });
 
-        let manifest = {};
-
         if (response.ok) {
-
             try {
-
-                manifest = await response.json();
+                // FIXME server returns text/plain for json data
+                // node-fetch consider ok when receiving a 403 and caused json parse error.
+                let manifest = await response.json();
                 manifest['CloudDir'] = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
                 return manifest;
-
             } catch (err) {
-
-                // server response is ok but returned error?
-                console.error(`Error downloading from ${url}: ${err}`);
-
+                errorMessages.push(`Error parsing JSON from ${url}: ${err}`);
             }
-
+        } else {
+            errorMessages.push(`Request to ${url} returned error: ${response.status}`);
         }
-
     }
 
+    console.error(`All requests failed. Errors:\n${errorMessages.join('\n')}`);
+    return {};
 }
