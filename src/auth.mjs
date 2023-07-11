@@ -30,7 +30,7 @@ async function auth() {
         return authData;
     } else if (authData.access_token && new Date() < new Date(authData.refresh_expires_at)) {
         console.log('Auth expired.');
-        //return await refreshAuth(authData);
+        return await login();
     } else {
         console.log('Auth invalid.');
         return await login();
