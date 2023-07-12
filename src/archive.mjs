@@ -28,9 +28,8 @@ async function archive(app) {
         return;
     }
 
-    let files = [];
 
-    await walk(source);
+    const files = await walk(source);
 
     const zipStream = createWriteStream(destination);
     const zip = new Zip();
