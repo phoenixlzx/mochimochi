@@ -10,14 +10,6 @@ function vaultManager() {
         showDetails: false,
         currentPhoto: 0,
         searchAssetData: {},
-        dateOptions: {
-            weekday: "short",
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        },
 
         async init() {
             const response = await fetch('/vault.json');
@@ -104,23 +96,12 @@ function vaultManager() {
             this.loadPage();
         },
 
-        loadPage() {
-            let start = (this.currentPage - 1) * this.itemsPerPage;
-            let end = this.currentPage * this.itemsPerPage;
-
-            const filteredCatalogItemIds = this.filteredAssets.slice(start, end);
-            this.assets = this.allUniqueAssets.filter(asset =>
-                filteredCatalogItemIds.includes(asset.catalogItemId)
-            );
-        },
-
         async changePage(direction) {
             if (direction === 'prev' && this.currentPage > 1) this.currentPage--;
             else if (direction === 'next' && this.currentPage < this.totalPages) this.currentPage++;
 
             this.loadPage();
         },
-
 
         async changeItemsPerPage(newItemsPerPage) {
             this.itemsPerPage = newItemsPerPage;
@@ -132,74 +113,151 @@ function vaultManager() {
             this.assets = displayedAssets;
         },
 
-        clickAsset(asset) {
-            this.selectedAsset = asset;
-            this.showDetails = true;
+        loadPage() {
+            let start = (this.currentPage - 1) * this.itemsPerPage;
+            let end = this.currentPage * this.itemsPerPage;
+
+            const filteredCatalogItemIds = this.filteredAssets.slice(start, end);
+            this.assets = this.allUniqueAssets.filter(asset =>
+                filteredCatalogItemIds.includes(asset.catalogItemId)
+            );
         },
 
         openModal(asset) {
             this.selectedAsset = asset;
+            this.selectedAsset.downloads = {}
+
+            for (rel of this.selectedAsset.releaseInfo) {
+                rel.download = {};
+            }
             UIkit.modal('#modal-full').show();
         },
 
-        getPlatformIconClass(platformKey) {
-            switch (platformKey) {
-                case 'windows':
-                    return 'fa fa-windows';
-                case 'windows2':
-                    return 'fa fa-windows';
-                case 'linux':
-                    return 'fa fa-linux';
-                case 'android':
-                    return 'fa fa-android';
-                case 'ios':
-                    return 'fa fa-mobile';
-                case 'apple':
-                    return 'fa fa-apple';
-                case 'laptop':
-                    return 'fa fa-laptop';
-                case 'eye':
-                    return 'fa fa-gamepad';
-                case 'hololens2':
-                    return 'fa fa-gamepad';
-                default:
-                    return 'fa fa-gamepad';
-            }
-        },
-
-        formatCompatibleApps(compatibleApps) {
-            if (!Array.isArray(compatibleApps) || !compatibleApps.length) return '';
-
-            // Convert the version strings into numbers and sort
-            let sortedApps = compatibleApps.sort((a, b) => parseFloat(a) - parseFloat(b));
-
-            // Initialize the chunks and the first chunk
-            let chunks = [], chunk = [sortedApps[0]];
-
-            // Iterate over the sorted version numbers, starting from the second one
-            for (let i = 1; i < sortedApps.length; i++) {
-                // Split each version string into major and minor parts
-                let [prevMajor, prevMinor] = sortedApps[i - 1].split('.').map(Number);
-                let [major, minor] = sortedApps[i].split('.').map(Number);
-
-                // If the current version is the next one in sequence to the previous version (and they are of the same major version),
-                // add it to the current chunk
-                if (major === prevMajor && minor === prevMinor + 1) {
-                    chunk.push(sortedApps[i]);
-                } else {  // Otherwise, push the current chunk into the list of chunks and start a new chunk
-                    chunks.push(chunk);
-                    chunk = [sortedApps[i]];
+        closeModal() {
+            for (rel of this.selectedAsset.releaseInfo) {
+                try {
+                    clearInterval(rel.download.intervalId);
+                } catch (err) {
+                    console.error(err);
                 }
             }
-
-            // Don't forget to push the last chunk into the list of chunks
-            chunks.push(chunk);
-
-            // Map each chunk to a string, joining the first and last versions with a dash if the chunk has more than one version
-            // Join the chunk strings with commas and return the result
-            return chunks.map(chunk => chunk.length === 1 ? chunk[0] : `${chunk[0]}-${chunk[chunk.length - 1]}`).join(', ');
+            this.selectedAsset = null;
         },
 
     };
 
+}
+
+const getPlatformIconClass = function(platformKey) {
+    switch (platformKey) {
+        case 'windows':
+            return 'fa fa-windows';
+        case 'windows2':
+            return 'fa fa-windows';
+        case 'linux':
+            return 'fa fa-linux';
+        case 'android':
+            return 'fa fa-android';
+        case 'ios':
+            return 'fa fa-mobile';
+        case 'apple':
+            return 'fa fa-apple';
+        case 'laptop':
+            return 'fa fa-laptop';
+        case 'eye':
+            return 'fa fa-gamepad';
+        case 'hololens2':
+            return 'fa fa-gamepad';
+        default:
+            return 'fa fa-gamepad';
+    }
+}
+
+const formatCompatibleApps = function(compatibleApps) {
+    if (!Array.isArray(compatibleApps) || !compatibleApps.length) return '';
+
+    // Convert the version strings into numbers and sort
+    let sortedApps = compatibleApps.sort((a, b) => parseFloat(a) - parseFloat(b));
+
+    // Initialize the chunks and the first chunk
+    let chunks = [], chunk = [sortedApps[0]];
+
+    // Iterate over the sorted version numbers, starting from the second one
+    for (let i = 1; i < sortedApps.length; i++) {
+        // Split each version string into major and minor parts
+        let [prevMajor, prevMinor] = sortedApps[i - 1].split('.').map(Number);
+        let [major, minor] = sortedApps[i].split('.').map(Number);
+
+        // If the current version is the next one in sequence to the previous version (and they are of the same major version),
+        // add it to the current chunk
+        if (major === prevMajor && minor === prevMinor + 1) {
+            chunk.push(sortedApps[i]);
+        } else {  // Otherwise, push the current chunk into the list of chunks and start a new chunk
+            chunks.push(chunk);
+            chunk = [sortedApps[i]];
+        }
+    }
+
+    // Don't forget to push the last chunk into the list of chunks
+    chunks.push(chunk);
+
+    // Map each chunk to a string, joining the first and last versions with a dash if the chunk has more than one version
+    // Join the chunk strings with commas and return the result
+    return chunks.map(chunk => chunk.length === 1 ? chunk[0] : `${chunk[0]}-${chunk[chunk.length - 1]}`).join(', ');
+}
+
+const requestDownloadStatus = function(rel) {
+    fetch(`/status/${rel.appId}.json`)
+        .then(response => response.json())
+        .then(json => {
+            if (json.status === "complete" || json.status === "error") {
+                rel.download.status = json.status;
+                clearInterval(rel.download.intervalId);
+            } else {
+                console.log(`${rel.download.status} = ${json.status}`);
+                rel.download.status = json.status;
+                rel.download.progress = json.progress;
+            }
+        })
+        .catch(error => {
+            console.error(error);
+        });
+}
+
+const requestDownloadInfo = function(rel) {
+    fetch(`/api/request/${rel.appId}`)
+        .then(response => response.json())
+        .then(json => {
+            if (json.status === "ok") {
+                rel.download.intervalId = setInterval(() => requestDownloadStatus(rel), 1000);
+            } else if (json.status === "complete") {
+                rel.download.status = "complete";
+            } else if (json.status === "error") {
+                rel.download.status = "error";
+                if (rel.download.intervalId) {
+                    clearInterval(rel.download.intervalId);
+                }
+            }
+        })
+        .catch(error => console.error(error));
+}
+
+const requestDownloadLink = function(appId) {
+    fetch(`/api/download/${appId}`)
+        .then(response => response.json())
+        .then(json => {
+            if (json.status === "complete" && json.url) {
+                window.location.href = json.url;
+            }
+        })
+        .catch(error => console.error(error));
+}
+
+const dateOptions = {
+    weekday: "short",
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
 }
