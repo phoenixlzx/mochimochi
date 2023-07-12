@@ -93,7 +93,7 @@ for (const d of [
     } catch (err) {
         if (err.code === 'ENOENT') {
             console.log(`Creating data directory at ${config.DATA_DIR}/${d}`);
-            await fs.mkdir(`${config.DATA_DIR}/${d}`);
+            await fs.mkdir(`${config.DATA_DIR}/${d}`, {recursive: true});
         } else {
             console.error(`Error accessing ${config.DATA_DIR}/${d}`);
         }
