@@ -27,7 +27,7 @@ class ProcessManager extends EventEmitter {
     async processItem() {
         if (this.currentIndex < this.items.length) {
             const item = this.items[this.currentIndex++];
-            await this.threadFunc(item, options);
+            await this.threadFunc(item, this.options);
             this.completedCount++;
             this.emit('progress', this.completedCount / this.items.length);
             if (this.completedCount === this.items.length) {
