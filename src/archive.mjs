@@ -28,13 +28,6 @@ async function archive(app) {
         return;
     }
 
-    try {
-        await fs.access(destDir);
-    } catch (err) {
-        console.error(`Error accessing destination: ${err}`);
-        await fs.mkdir(destDir);
-    }
-
     let files = [];
 
     await walk(source, async (err, pathname, dirent) => {

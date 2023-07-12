@@ -20,12 +20,6 @@ async function detail() {
             return asset;
         });
 
-    try {
-        await fs.access(`${config.DATA_DIR}/detail`);
-    } catch (err) {
-        await fs.mkdir(`${config.DATA_DIR}/detail`, { recursive: true });
-    }
-
     for (const asset of uniqueAssets) {
         const assetDetails = await getAssetDetails(ENDPOINTS.detail(asset.catalogItemId));
         try {

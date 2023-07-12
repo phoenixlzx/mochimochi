@@ -71,7 +71,7 @@ async function manifest() {
 
         try {
 
-            const manifestDownloader = new utils.ProcessManager(vaultData, downloadManifest, 10);
+            const manifestDownloader = new utils.ProcessManager(vaultData, null, downloadManifest, 10);
 
             manifestDownloader.on('progress', progress => console.log(`Manifest Download Progress: ${Math.ceil(progress * 100)}%`));
             manifestDownloader.on('complete', () => console.log('Manifest download complete.'));

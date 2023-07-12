@@ -1,6 +1,5 @@
 import Fastify from 'fastify'
 
-import fs from 'fs/promises';
 import { URL } from 'url';
 
 import { download } from './download.mjs';
@@ -119,13 +118,6 @@ async function serverCleanup(appName) {
 }
 
 async function server() {
-
-    try {
-        await fs.access(`${config.DATA_DIR}/status`);
-    } catch (err) {
-        console.error(`Error accessing status directory: ${err}`);
-        await fs.mkdir(`${config.DATA_DIR}/status`, { recursive: true });
-    }
 
     fastify.listen({ port: config.PORT, host: config.HOST }, (err, address) => {
         if (err) throw err;
