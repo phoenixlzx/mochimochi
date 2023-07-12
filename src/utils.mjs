@@ -14,9 +14,10 @@ export {
 
 class ProcessManager extends EventEmitter {
 
-    constructor(items, threadFunc, maxConcurrency = 1) {
+    constructor(items, options, threadFunc, maxConcurrency = 1) {
         super();
         this.items = items;
+        this.options = options;
         this.threadFunc = threadFunc;
         this.maxConcurrency = maxConcurrency;
         this.currentIndex = 0;
@@ -26,7 +27,7 @@ class ProcessManager extends EventEmitter {
     async processItem() {
         if (this.currentIndex < this.items.length) {
             const item = this.items[this.currentIndex++];
-            await this.threadFunc(item);
+            await this.threadFunc(item, options);
             this.completedCount++;
             this.emit('progress', this.completedCount / this.items.length);
             if (this.completedCount === this.items.length) {
