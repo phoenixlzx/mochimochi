@@ -64,7 +64,7 @@ async function download(args) {
 
         for (const [index, manifest] of manifestList.entries()) {
 
-            console.log(`Downloading ${index + 1}/${manifest.length} asset: ${manifest.AppNameString}`);
+            console.log(`Downloading ${index + 1}/${manifestList.length} asset: ${manifest.AppNameString}`);
 
             const chunkList = await getChunkList(manifest);
             const downloader = new utils.ProcessManager(chunkList, handleChunkDownload, 10);
