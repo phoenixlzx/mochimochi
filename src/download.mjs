@@ -60,14 +60,6 @@ async function download(args) {
 
             console.log(`Downloading ${index + 1}/${manifestList.length} asset: ${manifest.AppNameString}`);
 
-            try {
-                await fs.mkdir(`${config.DATA_DIR}/chunk/${manifest.AppNameString}`);
-                await fs.mkdir(`${config.DATA_DIR}/asset/${manifest.AppNameString}`);
-            } catch (err) {
-                console.error(`Error creating download directory for ${manifest.AppNameString}: ${err}`);
-                process.exit(1);
-            }
-
             const chunkList = await getChunkList(manifest);
             const downloader = new utils.ProcessManager(chunkList, manifest.AppNameString, handleChunkDownload, 10);
 
