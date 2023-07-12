@@ -34,7 +34,7 @@ async function upload(appName) {
 
         upload.on('httpUploadProgress', async (progress) => {
             console.log(`Uploading ${zipFilePath}: ${Math.ceil(progress.loaded / progress.total * 100)}%`);
-            await writeStatus(app, {
+            await writeStatus(appName, {
                 status: 'Uploading',
                 progress: progress
             });
