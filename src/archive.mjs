@@ -1,4 +1,4 @@
-import { createWriteStream } from 'fs';
+import { createWriteStream, createReadStream } from 'fs';
 import fs from 'fs/promises';
 
 import { Zip, ZipPassThrough } from 'fflate';
@@ -61,17 +61,35 @@ async function archive(app) {
     }
 
     for (const [index, file] of files.entries()) {
+        const relativePath = file.slice(file.indexOf(app));
+        const readStream = createReadStream(file);
+        const fileToAdd = new ZipPassThrough(relativePath);
 
-        const fileToAdd = new ZipPassThrough(file.slice(file.indexOf(app)));
         console.log(`Zipping ${file}`);
         await writeStatus(app, {
             status: 'Zipping up',
             progress: (index + 1) / files.length
         });
 
-        zip.add(fileToAdd);
-        fileToAdd.push(await fs.readFile(file), true);
+        readStream.on('data', chunk => {
+            if (!fileToAdd.push(chunk)) {
+                readStream.pause();
+            }
+        });
 
+        fileToAdd.on('drain', () => {
+            readStream.resume();
+        });
+
+        readStream.on('end', () => {
+            fileToAdd.push(null, true);
+        });
+
+        readStream.on('error', err => {
+            console.error(`Error reading file ${file}: ${err}`);
+        });
+
+        zip.add(fileToAdd);
     }
 
     zip.end();
