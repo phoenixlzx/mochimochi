@@ -6,6 +6,7 @@ import zlib from 'zlib';
 import { VARS } from './globals.mjs';
 import { manifestCache } from './manifest.mjs';
 import { clean } from './clean.mjs';
+import { writeStatus } from './status.mjs';
 
 import * as utils from './utils.mjs'
 
@@ -62,6 +63,8 @@ async function download(args) {
 
         const manifestList = await manifestCache(args);
 
+        let overAllProgress = 0;
+
         for (const [index, manifest] of manifestList.entries()) {
 
             console.log(`Downloading ${index + 1}/${manifestList.length} asset: ${manifest.AppNameString}`);
@@ -69,11 +72,16 @@ async function download(args) {
             const chunkList = await getChunkList(manifest);
             const downloader = new utils.ProcessManager(chunkList, handleChunkDownload, 10);
 
-            downloader.on('progress', progress => {
-                console.log(`Chunk Download Progress: ${Math.ceil(progress * 100)}%`)
+            downloader.on('progress', async (progress) => {
+                console.log(`Chunk Download Progress: ${Math.ceil(progress * 100)}%`);
+                overAllProgress = 0.5 * progress;
+                await writeStatus(manifest.AppNameString, {
+                    status: 'Downloading',
+                    progress: overAllProgress
+                });
             });
             downloader.on('complete', () => {
-                console.log('Chunk download complete.')
+                console.log('Chunk download complete.');
             });
 
             await downloader.process();
@@ -81,8 +89,13 @@ async function download(args) {
             const fileList = await getFileList(manifest);
             const fileConcatenator = new utils.ProcessManager(fileList, concatChunkToFile, 1);
 
-            fileConcatenator.on('progress', progress => {
-                console.log(`File Concatenated: ${Math.ceil(progress * 100)}%`)
+            fileConcatenator.on('progress', async (progress) => {
+                console.log(`File Concatenated: ${Math.ceil(progress * 100)}%`);
+                overAllProgress = 0.5 + 0.4 * progress;
+                await writeStatus(manifest.AppNameString, {
+                    status: 'Concatenating',
+                    progress: overAllProgress,
+                });
             });
             fileConcatenator.on('complete', () => console.log('File concatenation complete.'));
 
@@ -91,6 +104,11 @@ async function download(args) {
             for (const chunk of chunkList) {
                 const chunkFile = (`chunk/${chunk.slice(chunk.lastIndexOf('_') + 1)}`);
                 await clean(chunkFile);
+                await writeStatus(manifest.AppNameString, {
+                    status: 'Download complete',
+                    progress: 1,
+                });
+
             }
 
         }

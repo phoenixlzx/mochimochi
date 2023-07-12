@@ -8,6 +8,8 @@ import { archive } from './archive.mjs';
 import { upload, getUrl } from './s3.mjs';
 import { clean } from './clean.mjs';
 
+import { readStatus, writeStatus } from './status.mjs';
+
 import config from '../config.mjs';
 
 export {
@@ -28,11 +30,9 @@ fastify.get('/api/request/:appName', async (request, reply) => {
         return reply.code(400).send({ error: 'Invalid appName' });
     }
 
-    const statusFile = (`${config.DATA_DIR}/status/${appName}.json`);
-
     try {
 
-        const status = await readStatus(statusFile);
+        const status = await readStatus(appName);
         if (status != 'error') {
             return reply.code(200).send(status);
         }
@@ -47,9 +47,7 @@ fastify.get('/api/request/:appName', async (request, reply) => {
 
     try {
 
-        await updateStatus(statusFile, { status: 'downloading', progress: 0, url: '' });
-
-        handleTasks(appName, statusFile);
+        handleTasks(appName);
 
         reply.code(202).send({ status: 'ok', message: 'Download started' });
 
@@ -84,68 +82,40 @@ fastify.get('/api/download/:appName', async (request, reply) => {
 
 });
 
-async function readStatus(file) {
-
-    const data = await fs.readFile(file);
-    return JSON.parse(data);
-
-}
-
-async function updateStatus(file, status) {
-
-    await fs.writeFile(file, JSON.stringify(status));
-
-}
-
-async function handleTasks(appName, statusFile) {
+async function handleTasks(appName) {
 
     try {
 
-        updateStatus(statusFile, {
-            status: 'downloading',
-            progress: 0.3,
-            url: ''
-        });
         console.log(`Server: Downloading ${appName}`);
         await download(appName);
 
-        updateStatus(statusFile, {
-            status: 'packaging',
-            progress: 0.5,
-            url: ''
-        });
         console.log(`Server: Archiving ${appName}`);
         await archive(appName);
 
-
-        updateStatus(statusFile, {
-            status: 'uploading',
-            progress: 0.8,
-            url: ''
-        });
         console.log(`Server: Uploading ${appName}`);
         await upload(appName);
 
-
-        updateStatus(statusFile, {
+        await writeStatus(appName, {
             status: 'complete',
-            progress: 1,
-            url: ''
+            progress: 1
         });
 
-        await clean(`asset/${appName}`);
-        await clean(`archive/${appName}.zip`);
-
         console.log(`Server: Completed ${appName}`);
-
+        await serverCleanup(appName);
 
     } catch (err) {
 
         console.error(`Error occurred in handleTasks: ${err}`);
 
-        await updateStatus(statusFile, { status: 'error', progress: 0, url: '', error: err });
+        await writeStatus(appName, { status: 'error', progress: 0, error: err });
+        await serverCleanup(appName);
 
     }
+}
+
+async function serverCleanup(appName) {
+    await clean(`${config.DATA_DIR}/asset/${appName}`);
+    await clean(`${config.DATA_DIR}/archive/${appName}.zip`);
 }
 
 async function server() {

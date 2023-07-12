@@ -4,6 +4,8 @@ import fs from 'fs/promises';
 import { Zip, ZipPassThrough } from 'fflate';
 import { walk } from '@root/walk';
 
+import { writeStatus } from './status.mjs';
+
 import config from '../config.mjs';
 
 export {
@@ -65,10 +67,14 @@ async function archive(app) {
 
     }
 
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
 
         const fileToAdd = new ZipPassThrough(file.slice(file.indexOf(app)));
         console.log(`Zipping ${file}`);
+        await writeStatus(app, {
+            status: 'Zipping up',
+            progress: (index + 1) / files.length
+        });
 
         zip.add(fileToAdd);
         fileToAdd.push(await fs.readFile(file), true);

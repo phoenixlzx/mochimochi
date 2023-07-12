@@ -4,6 +4,8 @@ import { Upload } from "@aws-sdk/lib-storage";
 import fs from 'fs/promises';
 import { createReadStream } from 'fs';
 
+import { writeStatus } from './status.mjs';
+
 import config from '../config.mjs';
 
 export {
@@ -30,8 +32,12 @@ async function upload(appName) {
             },
         });
 
-        upload.on('httpUploadProgress', (progress) => {
+        upload.on('httpUploadProgress', async (progress) => {
             console.log(`Uploading ${zipFilePath}: ${Math.cel(progress.loaded / progress.total * 100)}%`);
+            await writeStatus(app, {
+                status: 'Uploading',
+                progress: progress
+            });
         });
 
         const result = await upload.done();
