@@ -237,6 +237,9 @@ const requestDownloadInfo = function(rel) {
                 if (rel.download.intervalId) {
                     clearInterval(rel.download.intervalId);
                 }
+            } else {
+                rel.download.status = json.status;
+                rel.download.progress = json.progress;
             }
         })
         .catch(error => console.error(error));
