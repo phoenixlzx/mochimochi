@@ -23,6 +23,7 @@ async function upload(appName) {
 
         await fs.access(zipFilePath);
 
+        let overAllProgress = 0;
         const upload = new Upload({
             client: s3Client,
             params: {
@@ -33,10 +34,11 @@ async function upload(appName) {
         });
 
         upload.on('httpUploadProgress', async (progress) => {
-            console.log(`Uploading ${zipFilePath}: ${Math.ceil(progress.loaded / progress.total * 100)}%`);
+            overAllProgress = progress.loaded / progress.total;
+            console.log(`Uploading ${zipFilePath}: ${Math.ceil(overAllProgress * 100)}%`);
             await writeStatus(appName, {
                 status: 'Uploading',
-                progress: progress
+                progress: overAllProgress
             });
         });
 
