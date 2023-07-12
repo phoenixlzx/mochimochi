@@ -70,7 +70,7 @@ async function archive(app) {
         });
 
         readStream.on('end', () => {
-            fileToAdd.push(null, true);
+            fileToAdd.push(new Uint8Array(0), true);
         });
 
         readStream.on('error', err => {
