@@ -29,31 +29,19 @@ fastify.get('/api/request/:appName', async (request, reply) => {
         return reply.code(400).send({ error: 'Invalid appName' });
     }
 
-    try {
+    const status = await readStatus(appName);
 
-        const status = await readStatus(appName);
-        if (status != 'error') {
-            return reply.code(200).send(status);
-        }
-
-    } catch (err) {
-
-        if (err.code === 'ENOENT') {
-            console.error(`Server: ${appName} status not found. Now starting.`)
-        }
-
+    if (status.status) {
+        return reply.code(200).send(status);
+    } else {
+        console.error(`Server: ${appName} status not found. Now starting.`)
     }
 
     try {
-
         handleTasks(appName);
-
         reply.code(202).send({ status: 'ok', message: 'Download started' });
-
     } catch (err) {
-
         reply.code(500).send({ status: 'error', error: err });
-
     }
 
 });
@@ -74,7 +62,6 @@ fastify.get('/api/download/:appName', async (request, reply) => {
     }
 
     let url = new URL(await getUrl(appName));
-
     status.url = url;
 
     reply.code(200).send(status);
