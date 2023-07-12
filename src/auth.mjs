@@ -12,18 +12,12 @@ export {
 
 async function auth() {
 
-    const authFile = `${config.DATA_DIR}/auth.json`;
     let authData = {};
 
     try {
-
-        await fs.access(authFile);
         authData = await readAuth(`${config.DATA_DIR}/auth.json`);
-
     } catch (err) {
-
         console.error(`Error accessing ${config.DATA_DIR}/auth.json`);
-
     }
 
     if (authData.access_token && new Date() < new Date(authData.expires_at)) {
@@ -116,7 +110,9 @@ async function loginAuth(authCode) {
     return await response.json();
 }
 
+/* TODO figure out refresh logic
 async function refreshAuth(authData) {
+
     const response = await fetch(ENDPOINTS.refresh_token, {
         headers: {
             "Content-Type": "application/json",
@@ -128,3 +124,4 @@ async function refreshAuth(authData) {
 
     return newAuth;
 }
+*/
