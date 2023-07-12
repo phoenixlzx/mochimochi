@@ -45,15 +45,6 @@ export {
 
 async function download(args) {
 
-    try {
-        await fs.access(`${config.DATA_DIR}/chunk`);
-        await fs.access(`${config.DATA_DIR}/asset`);
-    } catch (err) {
-        console.error(`Error accessing download directories: ${err}`);
-        await fs.mkdir(`${config.DATA_DIR}/chunk`, { recursive: true });
-        await fs.mkdir(`${config.DATA_DIR}/asset`, { recursive: true });
-    }
-
     if (args === 'all') {
 
         const manifestList = await manifestCache();
@@ -69,8 +60,16 @@ async function download(args) {
 
             console.log(`Downloading ${index + 1}/${manifestList.length} asset: ${manifest.AppNameString}`);
 
+            try {
+                await fs.mkdir(`${config.DATA_DIR}/chunk/${manifest.AppNameString}`);
+                await fs.mkdir(`${config.DATA_DIR}/asset/${manifest.AppNameString}`);
+            } catch (err) {
+                console.error(`Error creating download directory for ${manifest.AppNameString}: ${err}`);
+                process.exit(1);
+            }
+
             const chunkList = await getChunkList(manifest);
-            const downloader = new utils.ProcessManager(chunkList, handleChunkDownload, 10);
+            const downloader = new utils.ProcessManager(chunkList, manifest.AppNameString, handleChunkDownload, 10);
 
             downloader.on('progress', async (progress) => {
                 console.log(`Chunk Download Progress: ${Math.ceil(progress * 100)}%`);
@@ -87,7 +86,7 @@ async function download(args) {
             await downloader.process();
 
             const fileList = await getFileList(manifest);
-            const fileConcatenator = new utils.ProcessManager(fileList, concatChunkToFile, 1);
+            const fileConcatenator = new utils.ProcessManager(fileList, null, concatChunkToFile, 1);
 
             fileConcatenator.on('progress', async (progress) => {
                 console.log(`File Concatenated: ${Math.ceil(progress * 100)}%`);
@@ -97,19 +96,19 @@ async function download(args) {
                     progress: overAllProgress,
                 });
             });
+
             fileConcatenator.on('complete', () => console.log('File concatenation complete.'));
 
             await fileConcatenator.process();
 
             for (const chunk of chunkList) {
-                const chunkFile = (`chunk/${chunk.slice(chunk.lastIndexOf('_') + 1)}`);
-                await clean(chunkFile);
-                await writeStatus(manifest.AppNameString, {
-                    status: 'Download complete',
-                    progress: 1,
-                });
-
+                await clean(`chunk/${manifest.AppNameString}/${chunk.slice(chunk.lastIndexOf('_') + 1)}`);
             }
+
+            await writeStatus(manifest.AppNameString, {
+                status: 'Download complete',
+                progress: 1,
+            });
 
         }
 
@@ -142,17 +141,16 @@ async function getChunkList(manifest) {
 
 }
 
-async function handleChunkDownload(url) {
+async function handleChunkDownload(url, app) {
     console.log(`Downloading ${url}`);
     const file = url.slice(url.lastIndexOf('_') + 1);
     try {
-        await writeBufferToFile(`${config.DATA_DIR}/chunk/${file}`, await downloadUrl(url));
+        await writeBufferToFile(`${config.DATA_DIR}/chunk/${app}/${file}`, await downloadUrl(url));
         console.log(`Downloaded ${url}`);
     } catch (error) {
         console.error(`Error downloading ${url}: ${error.message}`);
     }
 }
-
 
 async function getFileList(manifest) {
 
@@ -176,7 +174,7 @@ async function getFileList(manifest) {
             }
 
             chunks.push({
-                path: `${config.DATA_DIR}/chunk/${chunk.Guid}.chunk`,
+                path: `${config.DATA_DIR}/chunk/${manifest.AppNameString}/${chunk.Guid}.chunk`,
                 start: start,
                 offset: offset,
                 size: size
