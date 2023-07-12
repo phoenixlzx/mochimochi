@@ -2,6 +2,8 @@
 
 const args = process.argv.slice(2);
 
+import fs from 'fs/promises';
+
 import { auth } from './auth.mjs';
 import { vault, vaultCache } from './vault.mjs';
 import { detail } from './detail.mjs';
@@ -9,6 +11,8 @@ import { manifest, manifestCache } from './manifest.mjs';
 import { download } from './download.mjs';
 import { archive } from './archive.mjs';
 import { server } from './server.mjs';
+
+import config from '../config.mjs';
 
 export {
     auth,
@@ -74,6 +78,26 @@ function help() {
       Archive downloaded <AppNameString> asset to a ZIP file.
     `;
     console.log(message);
+}
+
+for (const d of [
+    'asset',
+    'archive',
+    'chunk',
+    'manifest',
+    'status',
+    'detail'
+]) {
+    try {
+        await fs.access(`${config.DATA_DIR}/${d}`);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            console.log(`Creating data directory at ${config.DATA_DIR}/${d}`);
+            await fs.mkdir(`${config.DATA_DIR}/${d}`);
+        } else {
+            console.error(`Error accessing ${config.DATA_DIR}/${d}`);
+        }
+    }
 }
 
 mochi(args);
