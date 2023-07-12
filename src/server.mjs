@@ -54,8 +54,7 @@ fastify.get('/api/download/:appName', async (request, reply) => {
         return reply.code(400).send({ error: 'Invalid appName' });
     }
 
-    const statusFile = (`${config.DATA_DIR}/status/${appName}.json`);
-    const status = await readStatus(statusFile);
+    const status = await readStatus(appName);
 
     if (status.status !== 'complete') {
         return reply.code(200).send(status);
