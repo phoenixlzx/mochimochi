@@ -1,8 +1,8 @@
 import { createWriteStream, createReadStream } from 'fs';
 import fs from 'fs/promises';
+import { join } from 'path';
 
 import { Zip, ZipPassThrough } from 'fflate';
-import { walk } from '@root/walk';
 
 import { writeStatus } from './status.mjs';
 
@@ -30,17 +30,7 @@ async function archive(app) {
 
     let files = [];
 
-    await walk(source, async (err, pathname, dirent) => {
-
-        if (err) {
-            console.error(`Error reading directory: ${err}`);
-        }
-
-        if (dirent.isFile()) {
-            files.push(pathname);
-        }
-
-    });
+    await walk(source);
 
     const zipStream = createWriteStream(destination);
     const zip = new Zip();
@@ -74,11 +64,10 @@ async function archive(app) {
         readStream.on('data', chunk => {
             if (!fileToAdd.push(chunk)) {
                 readStream.pause();
+                process.nextTick(() => {
+                    readStream.resume();
+                });
             }
-        });
-
-        fileToAdd.on('drain', () => {
-            readStream.resume();
         });
 
         readStream.on('end', () => {
@@ -94,4 +83,19 @@ async function archive(app) {
 
     zip.end();
 
+}
+
+async function walk(dir) {
+    let files = [];
+    const dirents = await fs.readdir(dir, { withFileTypes: true });
+
+    for (const dirent of dirents) {
+        const res = join(dir, dirent.name);
+        if (dirent.isDirectory()) {
+            files = files.concat(await walk(res));
+        } else {
+            files.push(res);
+        }
+    }
+    return files;
 }
