@@ -1,7 +1,7 @@
 import { createWriteStream, createReadStream } from 'fs';
 import fs from 'fs/promises';
 import { join } from 'path';
-import ZipStream from 'zip-stream';
+import archiver from 'archiver';
 import { writeStatus } from './status.mjs';
 import config from '../config.mjs';
 
@@ -23,9 +23,29 @@ async function archive(app) {
     }
 
     const files = await walk(source);
-    const archive = new ZipStream({ zip64: true });
+    const archive = archiver('zip', {
+        zlib: { level: 0 },
+        store: true
+    });
 
-    archive.pipe(createWriteStream(destination));
+    const zipOutput = createWriteStream(destination);
+
+    zipOutput.on('close', () => console.log(`Zip saved to ${destination}`));
+    zipOutput.on('end', () => console.log('Data has been drained'));
+
+    archive.on('warning', function(err) {
+        if (err.code === 'ENOENT') {
+            console.log(err);
+        } else {
+            throw err;
+        }
+    });
+
+    archive.on('error', function(err) {
+        throw err;
+    });
+
+    archive.pipe(zipOutput);
 
     for (const [index, file] of files.entries()) {
         const name = file.replace(srcDir, '');
@@ -37,14 +57,10 @@ async function archive(app) {
             progress: (index + 1) / files.length
         });
 
-        archive.entry(readStream, { name: name }, err => {
-            if (err) console.error(`Error zipping file ${file}: ${err}`);
-        });
+        archive.append(readStream, { name: name });
     }
 
-    archive.finalize();
-
-    console.log(`Zip saved to ${destination}`);
+    await archive.finalize();
 }
 
 async function walk(dir) {
