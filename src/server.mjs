@@ -99,8 +99,8 @@ async function handleTasks(appName) {
 }
 
 async function serverCleanup(appName) {
-    await clean(`${config.DATA_DIR}/asset/${appName}`);
-    await clean(`${config.DATA_DIR}/archive/${appName}.zip`);
+    await clean(`asset/${appName}`);
+    await clean(`archive/${appName}.zip`);
 }
 
 async function server() {
