@@ -27,6 +27,7 @@
     "@aws-sdk/s3-request-presigner": "^3.367.0",
     "fastify": "^4.19.2",
     "fflate": "^0.8.0",
-    "node-fetch": "^3.3.1"
+    "node-fetch": "^3.3.1",
+    "zip-stream": "^4.1.0"
   }
 }

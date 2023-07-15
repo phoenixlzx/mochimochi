@@ -1,19 +1,13 @@
 import { createWriteStream, createReadStream } from 'fs';
 import fs from 'fs/promises';
 import { join } from 'path';
-
-import { Zip, ZipPassThrough } from 'fflate';
-
+import ZipStream from 'zip-stream';
 import { writeStatus } from './status.mjs';
-
 import config from '../config.mjs';
 
-export {
-    archive
-};
+export { archive };
 
 async function archive(app) {
-
     if (!app) return;
 
     const srcDir = `${config.DATA_DIR}/asset/`;
@@ -28,31 +22,14 @@ async function archive(app) {
         return;
     }
 
-
     const files = await walk(source);
+    const archive = new ZipStream({ zip64: true });
 
-    const zipStream = createWriteStream(destination);
-    const zip = new Zip();
-
-    zip.ondata = (err, data, final) => {
-
-        if (err) {
-            console.error(`Error zip: ${err}`);
-        }
-
-        zipStream.write(data);
-
-        if (final) {
-            zipStream.end();
-            console.log(`Zip saved to ${destination}`);
-        }
-
-    }
+    archive.pipe(createWriteStream(destination));
 
     for (const [index, file] of files.entries()) {
-        const relativePath = file.slice(file.indexOf(app));
+        const name = file.replace(srcDir, '');
         const readStream = createReadStream(file);
-        const fileToAdd = new ZipPassThrough(relativePath);
 
         console.log(`Zipping ${file}`);
         await writeStatus(app, {
@@ -60,28 +37,14 @@ async function archive(app) {
             progress: (index + 1) / files.length
         });
 
-        readStream.on('data', chunk => {
-            if (!fileToAdd.push(chunk)) {
-                readStream.pause();
-                process.nextTick(() => {
-                    readStream.resume();
-                });
-            }
+        archive.entry(readStream, { name: name }, err => {
+            if (err) console.error(`Error zipping file ${file}: ${err}`);
         });
-
-        readStream.on('end', () => {
-            fileToAdd.push(new Uint8Array(0), true);
-        });
-
-        readStream.on('error', err => {
-            console.error(`Error reading file ${file}: ${err}`);
-        });
-
-        zip.add(fileToAdd);
     }
 
-    zip.end();
+    archive.finalize();
 
+    console.log(`Zip saved to ${destination}`);
 }
 
 async function walk(dir) {
