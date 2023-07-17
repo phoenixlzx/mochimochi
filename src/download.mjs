@@ -93,14 +93,12 @@ async function download(args) {
 
             await fileConcatenator.process();
 
-            for (const chunk of chunkList) {
-                await clean(`chunk/${manifest.AppNameString}/${chunk.slice(chunk.lastIndexOf('_') + 1)}`);
-            }
-
             await writeStatus(manifest.AppNameString, {
                 status: 'Download complete',
                 progress: 1,
             });
+
+            await clean(`chunk/${manifest.AppNameString}`);
 
         }
 
