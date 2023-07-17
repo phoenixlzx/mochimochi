@@ -147,9 +147,11 @@
                                     <template x-if="release.download.status === 'error'">
                                       <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
                                         <div>
-                                          <a href="#" class="uk-button uk-button-text">Error</a>
+                                          <a href="#" class="uk-button uk-button-text" disabled>Error</a>
                                         </div>
-                                        <div class=""></div>
+                                        <div>
+                                          <a href="#" @click.prevent="requestDownloadInfo(release)" class="uk-button uk-button-text">Retry?</a>
+                                        </div>
                                       </div>
                                     </template>
                                     <template x-if="!release.download.status">
