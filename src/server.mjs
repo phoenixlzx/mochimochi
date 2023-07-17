@@ -85,15 +85,14 @@ async function handleTasks(appName) {
             progress: 1
         });
 
-        console.log(`Server: Completed ${appName}`);
         await serverCleanup(appName);
+        console.log(`Server: Completed ${appName}`);
 
     } catch (err) {
 
-        console.error(`Error occurred in handleTasks: ${err}`);
-
         await writeStatus(appName, { status: 'error', progress: 0, error: err });
         await serverCleanup(appName);
+        console.error(`Error occurred in handleTasks: ${err}`);
 
     }
 }
