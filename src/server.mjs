@@ -31,10 +31,10 @@ fastify.get('/api/request/:appName', async (request, reply) => {
 
     const status = await readStatus(appName);
 
-    if (status.status) {
+    if (status.status && status.status !== 'error') {
         return reply.code(200).send(status);
     } else {
-        console.error(`Server: ${appName} status not found. Now starting.`)
+        console.error(`Server: ${appName} status not found or error. Now (re)starting.`)
     }
 
     try {
