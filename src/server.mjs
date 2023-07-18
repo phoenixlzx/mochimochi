@@ -21,6 +21,8 @@ const fastify = Fastify({
 
 const appNameSantizer = new RegExp(/^[\w-.]+$/);
 
+let activeTasks = {};
+
 fastify.get('/api/request/:appName', async (request, reply) => {
 
     const { appName } = request.params;
@@ -69,6 +71,10 @@ fastify.get('/api/download/:appName', async (request, reply) => {
 
 async function handleTasks(appName) {
 
+    if (activeTasks[appName]) return;
+
+    activeTasks[appName] = 1;
+
     try {
 
         console.log(`Server: Downloading ${appName}`);
@@ -95,6 +101,9 @@ async function handleTasks(appName) {
         console.error(`Error occurred in handleTasks: ${err}`);
 
     }
+
+    delete activeTasks[appName];
+
 }
 
 async function serverCleanup(appName) {
