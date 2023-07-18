@@ -214,7 +214,6 @@ const requestDownloadStatus = function(rel) {
                 rel.download.status = json.status;
                 clearInterval(rel.download.intervalId);
             } else {
-                console.log(`${rel.download.status} = ${json.status}`);
                 rel.download.status = json.status;
                 rel.download.progress = json.progress;
             }
