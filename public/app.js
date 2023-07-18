@@ -240,6 +240,9 @@ const requestDownloadInfo = function(rel) {
             } else {
                 rel.download.status = json.status;
                 rel.download.progress = json.progress;
+                if (!rel.download.IntervalId) {
+                    rel.download.intervalId = setInterval(() => requestDownloadStatus(rel), 1000);
+                }
             }
         })
         .catch(error => console.error(error));
