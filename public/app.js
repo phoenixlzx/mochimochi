@@ -12,7 +12,7 @@ function vaultManager() {
         searchAssetData: {},
 
         async init() {
-            const response = await fetch(`/vault.json?timestamp=${timestamp}`, new Date().getTime());
+            const response = await fetch(`/vault.json?timestamp=${new Date().getTime()}`);
             let assets = await response.json();
 
             // remove duplicates based on catalogItemId
