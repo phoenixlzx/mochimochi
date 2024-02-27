@@ -38,7 +38,7 @@ async function manifestBinaryHandler(data) {
     manifestData = manifestData.slice(fml.size);
 
     manifestObj = {
-        ManifestFileVersion: utils.num2blob(meta.featureLevel),
+        ManifestFileVersion: utils.num2blob(meta.featureLevel, 12),
         bIsFileData: meta.isFileData,
         AppID: meta.appId,
         AppNameString: meta.appName,
@@ -59,7 +59,7 @@ async function manifestBinaryHandler(data) {
 
     for (const cd of cdl.elements) {
         const guid = cd.guid.map(g => g.toString(16).padStart(8, '0')).join("").toUpperCase();
-        manifestObj.ChunkHashList[guid] = utils.bigInt2blob(cd.hash);
+        manifestObj.ChunkHashList[guid] = utils.num2blob(cd.hash, 24);
         manifestObj.ChunkShaList[guid] = cd.sha_hash.toString('hex');
         manifestObj.DataGroupList[guid] = cd.group_num.toString().padStart(3, '0');
     }
