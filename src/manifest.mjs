@@ -107,7 +107,7 @@ async function manifestCache(manifest) {
 
     try {
 
-        console.log(`Writing manifest.json`);
+        console.log(`Reading manifest.json`);
         manifestListCache = JSON.parse(await fs.readFile(`${config.DATA_DIR}/manifest.json`, 'utf8'));
 
     } catch (err) {
