@@ -5,11 +5,16 @@ export {
     ProcessManager,
     fetchJson,
     blob2hex,
+    hex2blob,
     hex2bin,
     bin2hex,
     splitStr,
     dec2hex,
-    hex2dec
+    hex2dec,
+    bigInt2blob,
+    num2blob,
+    blob2num,
+    getChunkDir
 };
 
 class ProcessManager extends EventEmitter {
@@ -101,3 +106,68 @@ function hex2dec(hex, bigStr = false) {
     //returns string, used for long ints or int if false
     return (bigStr) ? BigInt('0x' + hex).toString(10) : parseInt(hex, 16)
 }
+
+function hex2blob(hexString, reverse = false) {
+    const buffer = Buffer.from(hexString, 'hex');
+    let blob = '';
+
+    for (let i = 0; i < buffer.length; i++) {
+        const decimalString = buffer[i].toString().padStart(3, '0');
+        blob = decimalString + blob;
+    }
+
+    return blob;
+}
+
+function bigInt2blob(bigIntValue) {
+
+    const byteLength = 8;
+    const buffer = Buffer.alloc(byteLength);
+    for (let i = 0; i < byteLength; i++) {
+        buffer[byteLength - 1 - i] = Number(bigIntValue >> BigInt(8 * i) & BigInt(0xFF));
+    }
+
+    let blob = '';
+    for (let i = 0; i < buffer.length; i++) {
+        const decimalString = buffer[i].toString().padStart(3, '0');
+        blob += decimalString;
+    }
+
+    return blob;
+}
+
+function num2blob(num, targetLength) {
+    let blob = "";
+    while (num) {
+        let part = num & 0xFF;
+        num = num >> 8;
+        blob = blob + part.toString().padStart(3, '0');
+    }
+    return blob.padEnd(targetLength, '0');
+}
+
+function blob2num(blobStr) {
+    let num = 0;
+    let shift = 0;
+
+    for (let i = 0; i < blobStr.length; i += 3) {
+        const part = parseInt(blobStr.substring(i, i + 3), 10);
+        num += (part << shift);
+        shift += 8;
+    }
+
+    return num;
+}
+
+function getChunkDir(version) {
+    if (version >= 15) {
+        return 'ChunksV4';
+    } else if (version >= 6) {
+        return 'ChunksV3';
+    } else if (version >= 3) {
+        return 'ChunksV2';
+    } else {
+        return 'Chunks';
+    }
+}
+

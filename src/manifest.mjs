@@ -4,7 +4,8 @@ import fs from 'fs/promises';
 import { ENDPOINTS, VARS } from './globals.mjs';
 import { auth } from './auth.mjs';
 import { vaultCache } from './vault.mjs';
-import * as utils from './utils.mjs'
+import { manifestBinaryHandler } from './manifestbin.mjs';
+import * as utils from './utils.mjs';
 
 import config from '../config.mjs';
 
@@ -246,14 +247,19 @@ async function tryDownloadManifest(manifests) {
         });
 
         if (response.ok) {
+            let manifest;
             try {
-                // FIXME server returns text/plain for json data
-                // node-fetch consider ok when receiving a 403 and caused json parse error.
-                let manifest = await response.json();
+                const contentType = response.headers.get("content-type");
+                if (contentType === "application/json") {
+                    manifest = await response.json();
+                } else if (contentType === "text/plain") {
+                    manifest = await manifestBinaryHandler(await response.text());
+                }
+
                 manifest['CloudDir'] = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
                 return manifest;
             } catch (err) {
-                errorMessages.push(`Error parsing JSON from ${url}: ${err}`);
+                errorMessages.push(`Error parsing manifest from ${url}: ${err}`);
             }
         } else {
             errorMessages.push(`Request to ${url} returned error: ${response.status}`);

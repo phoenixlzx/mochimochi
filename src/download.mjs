@@ -121,10 +121,11 @@ async function downloadAll(list) {
 
 async function getChunkList(manifest) {
 
+    const chunkversion = utils.getChunkDir(utils.blob2num(manifest.ManifestFileVersion));
     let list = [];
 
     for (const guid in manifest.ChunkHashList) {
-        list.push(`${manifest.CloudDir}/ChunksV3/${manifest.DataGroupList[guid].slice(-2)}/${utils.blob2hex(manifest.ChunkHashList[guid])}_${guid}.chunk`);
+        list.push(`${manifest.CloudDir}/${chunkversion}/${manifest.DataGroupList[guid].slice(-2)}/${utils.blob2hex(manifest.ChunkHashList[guid])}_${guid}.chunk`);
     }
 
     return list;
