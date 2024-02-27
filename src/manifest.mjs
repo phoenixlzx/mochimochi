@@ -58,7 +58,15 @@ async function manifest() {
                         manifestListCache['catalogItemId'][vaultData.catalogItemId] = [simplifiedManifest];
                     }
 
-                    manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
+                    if (hasOwnProperty(manifestListCache['appName'][manifestData.AppNameString])) {
+                        // developer uploaded new build for same AppNameString, only store the latest build.
+                        if (manifestListCache['appName'][manifestData.AppNameString]['BuildVersionString'] < simplifiedManifest['BuildVersionString']) {
+                            manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
+                        }
+                    } else {
+                        manifestListCache['appName'][manifestData.AppNameString] = simplifiedManifest;
+                    }
+
                 }
 
             }
