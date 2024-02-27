@@ -16,14 +16,19 @@ async function manifestBinaryHandler(data) {
 
     let manifestData;
     let manifestObj = {};
+    let parsed;
 
-    const parsed = parseManifest(data);
-    if (parsed.storedAs) {
-        manifestData = await zlib.decompressData(parsed.data);
-    } else {
-        manifestData = parsed.data;
+    try {
+        parsed = await parseManifest(data);
+        if (parsed.storedAs) {
+            manifestData = await zlib.decompressData(parsed.data);
+        } else {
+            manifestData = parsed.data;
+        }
+    } catch (err) {
+        console.log(`Error handling binary manifest: ${err}`);
+        return {};
     }
-
 
     const meta = await parseManifestMeta(manifestData);
     manifestData = manifestData.slice(meta.metaSize);
@@ -31,7 +36,6 @@ async function manifestBinaryHandler(data) {
     manifestData = manifestData.slice(cdl.size);
     const fml = await parseFML(manifestData);
     manifestData = manifestData.slice(fml.size);
-
 
     manifestObj = {
         ManifestFileVersion: utils.num2blob(meta.featureLevel),
@@ -100,9 +104,11 @@ async function parseManifest(buffer) {
     // Header Magic
     const headerMagic = buffer.readUInt32LE(offset);
     offset += 4;
+    /*
     if (headerMagic !== 0x44BEC00C) {
         throw new Error('Invalid Manifest: No header magic!');
     }
+    */
 
     // Header Size
     const headerSize = buffer.readUInt32LE(offset);

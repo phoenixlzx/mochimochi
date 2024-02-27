@@ -1,10 +1,19 @@
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
 
-import { ENDPOINTS, VARS } from './globals.mjs';
-import { auth } from './auth.mjs';
-import { vaultCache } from './vault.mjs';
-import { manifestBinaryHandler } from './manifestbin.mjs';
+import {
+    ENDPOINTS,
+    VARS
+} from './globals.mjs';
+import {
+    auth
+} from './auth.mjs';
+import {
+    vaultCache
+} from './vault.mjs';
+import {
+    manifestBinaryHandler
+} from './manifestbin.mjs';
 import * as utils from './utils.mjs';
 
 import config from '../config.mjs';
@@ -27,7 +36,9 @@ async function manifest() {
     try {
         await fs.access(`${config.DATA_DIR}/manifest`);
     } catch (err) {
-        await fs.mkdir(`${config.DATA_DIR}/manifest`, { recursive: true });
+        await fs.mkdir(`${config.DATA_DIR}/manifest`, {
+            recursive: true
+        });
     }
 
     async function downloadManifest(vaultData) {
@@ -248,19 +259,29 @@ async function tryDownloadManifest(manifests) {
 
         if (response.ok) {
             let manifest;
-            try {
-                const contentType = response.headers.get("content-type");
-                if (contentType === "application/json") {
-                    manifest = await response.json();
-                } else if (contentType === "text/plain") {
-                    manifest = await manifestBinaryHandler(await response.buffer());
-                }
+            const resp = new Buffer.from(await response.ArrayBuffer());
+            const clouddir = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
 
-                manifest['CloudDir'] = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
+            try {
+                manifest = JSON.parse(resp.toString());
+                manifest['CloudDir'] = clouddir;
                 return manifest;
-            } catch (err) {
-                errorMessages.push(`Error parsing manifest from ${url}: ${err}`);
+            } catch (error) {
+                errorMessages.push(`Error parsing JSON manifest from ${url}: ${err}`);
             }
+
+            try {
+                if (buffer.readUInt32LE(0) === 0x44BEC00C) {
+                    manifest = await manifestBinaryHandler(buffer);
+                    manifest['CloudDir'] = clouddir;
+                    return manifest;
+                } else {
+                    throw new Error('Invalid manifest: Header Magic not match.');
+                }
+            } catch (error) {
+                errorMessages.push(`Error parsing BIN manifest from ${url}: ${err}`);
+            }
+
         } else {
             errorMessages.push(`Request to ${url} returned error: ${response.status}`);
         }
