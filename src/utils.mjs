@@ -43,7 +43,9 @@ class ProcessManager extends EventEmitter {
     }
 
     async process() {
-        const workers = Array.from({ length: this.maxConcurrency }, () => this.processItem());
+        const workers = Array.from({
+            length: this.maxConcurrency
+        }, () => this.processItem());
         return await Promise.all(workers);
     }
 
@@ -119,7 +121,7 @@ function hex2blob(hexString, reverse = false) {
     return blob;
 }
 
-function bigInt2blob(bigIntValue) {
+function bigInt2blob(bigIntValue, reverse = false) {
 
     const byteLength = 8;
     const buffer = Buffer.alloc(byteLength);
@@ -131,6 +133,15 @@ function bigInt2blob(bigIntValue) {
     for (let i = 0; i < buffer.length; i++) {
         const decimalString = buffer[i].toString().padStart(3, '0');
         blob += decimalString;
+    }
+
+    if (reverse) {
+        let sets = splitStr(blob, 3);
+        sets.reverse();
+        blob = '';
+        for (let val of sets) {
+            blob += val;
+        }
     }
 
     return blob;
@@ -170,4 +181,3 @@ function getChunkDir(version) {
         return 'Chunks';
     }
 }
-

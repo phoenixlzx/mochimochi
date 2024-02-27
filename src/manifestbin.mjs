@@ -59,7 +59,7 @@ async function manifestBinaryHandler(data) {
 
     for (const cd of cdl.elements) {
         const guid = cd.guid.map(g => g.toString(16).padStart(8, '0')).join("").toUpperCase();
-        manifestObj.ChunkHashList[guid] = utils.num2blob(cd.hash, 24);
+        manifestObj.ChunkHashList[guid] = utils.bigInt2blob(cd.hash, true);
         manifestObj.ChunkShaList[guid] = cd.sha_hash.toString('hex');
         manifestObj.DataGroupList[guid] = cd.group_num.toString().padStart(3, '0');
     }
