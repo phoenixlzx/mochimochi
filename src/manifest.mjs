@@ -253,7 +253,7 @@ async function tryDownloadManifest(manifests) {
                 if (contentType === "application/json") {
                     manifest = await response.json();
                 } else if (contentType === "text/plain") {
-                    manifest = await manifestBinaryHandler(await response.text());
+                    manifest = await manifestBinaryHandler(await response.buffer());
                 }
 
                 manifest['CloudDir'] = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
