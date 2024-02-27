@@ -266,7 +266,7 @@ async function tryDownloadManifest(manifests) {
                 manifest = JSON.parse(resp.toString());
                 manifest['CloudDir'] = clouddir;
                 return manifest;
-            } catch (error) {
+            } catch (err) {
                 errorMessages.push(`Error parsing JSON manifest from ${url}: ${err}`);
             }
 
@@ -278,7 +278,7 @@ async function tryDownloadManifest(manifests) {
                 } else {
                     throw new Error('Invalid manifest: Header Magic not match.');
                 }
-            } catch (error) {
+            } catch (err) {
                 errorMessages.push(`Error parsing BIN manifest from ${url}: ${err}`);
             }
 
