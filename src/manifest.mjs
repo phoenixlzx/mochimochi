@@ -271,8 +271,8 @@ async function tryDownloadManifest(manifests) {
             }
 
             try {
-                if (buffer.readUInt32LE(0) === 0x44BEC00C) {
-                    manifest = await manifestBinaryHandler(buffer);
+                if (resp.readUInt32LE(0) === 0x44BEC00C) {
+                    manifest = await manifestBinaryHandler(resp);
                     manifest['CloudDir'] = clouddir;
                     return manifest;
                 } else {
