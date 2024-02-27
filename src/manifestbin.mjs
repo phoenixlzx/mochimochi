@@ -21,7 +21,7 @@ async function manifestBinaryHandler(data) {
     try {
         parsed = await parseManifest(data);
         if (parsed.storedAs) {
-            manifestData = await zlib.decompressData(parsed.data);
+            manifestData = await decompressData(parsed.data);
         } else {
             manifestData = parsed.data;
         }
