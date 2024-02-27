@@ -259,7 +259,7 @@ async function tryDownloadManifest(manifests) {
 
         if (response.ok) {
             let manifest;
-            const resp = new Buffer.from(await response.ArrayBuffer());
+            const resp = new Buffer.from(await response.arrayBuffer());
             const clouddir = manifestUri.uri.slice(0, manifestUri.uri.lastIndexOf('/'));
 
             try {
