@@ -37,7 +37,7 @@ const VARS = {
     client_id: "34a02cf8f4414e29b15921876da36f9a",
     client_cred: "daafbccc737745039dffe53d94fc76cf",
     client_cred_base64: "MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=",
-    client_ua: "EpicGamesLauncher/15.8.0-26257023+++Portal+Release-Live Windows/10.0.22621.1.256.64bit",
+    client_ua: "UELauncher/16.0.1-31615183+++Portal+Release-Live Windows/10.0.22621.1.256.64bit",
 
     date_options: {
         year: 'numeric',
