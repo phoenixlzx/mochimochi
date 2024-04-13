@@ -15,60 +15,72 @@ function vaultManager() {
             const response = await fetch(`/vault.json?timestamp=${new Date().getTime()}`);
             let assets = await response.json();
 
-            // remove duplicates based on catalogItemId
+            // Remove duplicates based on catalogItemId
             this.allUniqueAssets = Array.from(new Set(assets.map(a => a.catalogItemId)))
                 .map(catalogItemId => {
                     let asset = assets.find(a => a.catalogItemId === catalogItemId);
-                    asset.loaded = false; // add a loaded property for each asset
+                    asset.loaded = false; // Add a loaded property for each asset
                     return asset;
                 });
 
-            // this.totalPages = Math.ceil(this.allUniqueAssets.length / this.itemsPerPage);
             this.totalPages = Math.ceil(this.allUniqueAssets.length / this.itemsPerPage);
 
+            // Counter to track the number of loaded assets
+            this.loadedCount = 0;
+
+            const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
             // Create an array to hold all the fetch promises
-            const fetchPromises = [];
+            const batchSize = 10; // Adjust batch size as needed
+            const delayBetweenBatches = 50; // Delay in milliseconds
 
-            // Create a fetch promise for each asset and push it to the array
-            for (let i = 0; i < this.allUniqueAssets.length; i++) {
-                const asset = this.allUniqueAssets[i];
-                if (!asset.loaded) { // Only fetch the details if they haven't been loaded yet
-                    const fetchPromise = fetch(`/detail/${asset.catalogItemId}.json`)
-                        .then(async response => {
-                            const details = await response.json();
-                            // Populate asset details
-                            asset.catalogItemId = details.data.data.catalogItemId;
-                            asset.thumbnail = details.data.data.thumbnail;
-                            asset.title = details.data.data.title;
-                            asset.author = details.data.data.seller.name;
-                            asset.category = details.data.data.categories.map(c => c.name).join(', ');
-                            asset.platforms = details.data.data.platforms;
-                            asset.compatibleApps = details.data.data.compatibleApps;
-                            asset.url = `https://www.unrealengine.com/marketplace/en-US/item/${asset.catalogItemId}`;
-                            asset.seller = details.data.data.seller;
-                            asset.description = details.data.data.description;
-                            asset.technicalDetails = details.data.data.technicalDetails;
-                            asset.longDescription = details.data.data.longDescription;
-                            asset.keyImages = details.data.data.keyImages;
-                            asset.releaseInfo = details.data.data.releaseInfo;
-                            asset.loaded = true; // mark the asset as loaded
+            for (let i = 0; i < this.allUniqueAssets.length; i += batchSize) {
+                const batch = this.allUniqueAssets.slice(i, i + batchSize);
+                const batchPromises = batch.map(asset => {
+                    if (!asset.loaded) {
+                        return fetch(`/detail/${asset.catalogItemId}.json`)
+                            .then(async response => {
+                                const details = await response.json();
+                                // Populate asset details
+                                asset.catalogItemId = details.data.data.catalogItemId;
+                                asset.thumbnail = details.data.data.thumbnail;
+                                asset.title = details.data.data.title;
+                                asset.author = details.data.data.seller.name;
+                                asset.category = details.data.data.categories.map(c => c.name).join(', ');
+                                asset.platforms = details.data.data.platforms;
+                                asset.compatibleApps = details.data.data.compatibleApps;
+                                asset.url = `https://www.unrealengine.com/marketplace/en-US/item/${asset.catalogItemId}`;
+                                asset.seller = details.data.data.seller;
+                                asset.description = details.data.data.description;
+                                asset.technicalDetails = details.data.data.technicalDetails;
+                                asset.longDescription = details.data.data.longDescription;
+                                asset.keyImages = details.data.data.keyImages;
+                                asset.releaseInfo = details.data.data.releaseInfo;
+                                asset.loaded = true; // Mark the asset as loaded
+                                this.loadedCount++; // Increment the counter when an asset is loaded
 
-                            // Also populate searchAssetData
-                            this.searchAssetData[asset.catalogItemId] = details.data.data.title.toLowerCase() +
-                                details.data.data.categories.map(c => c.name).join(' ').toLowerCase() +
-                                details.data.data.seller.name.toLowerCase() +
-                                details.data.data.description.toLowerCase() +
-                                details.data.data.longDescription.toLowerCase() +
-                                details.data.data.technicalDetails.toLowerCase();
+                                // Also populate searchAssetData
+                                this.searchAssetData[asset.catalogItemId] = details.data.data.title.toLowerCase() +
+                                    details.data.data.categories.map(c => c.name).join(' ').toLowerCase() +
+                                    details.data.data.seller.name.toLowerCase() +
+                                    details.data.data.description.toLowerCase() +
+                                    details.data.data.longDescription.toLowerCase() +
+                                    details.data.data.technicalDetails.toLowerCase();
+                            });
+                    }
+                });
 
-                            this.displayAsset(asset);
-                        });
-                    fetchPromises.push(fetchPromise);
+                // Wait for all fetch promises in the batch to be settled
+                await Promise.allSettled(batchPromises);
+                // delay between batches
+                if (i + batchSize < this.allUniqueAssets.length) { // Check to avoid unnecessary delay after the last batch
+                    await sleep(delayBetweenBatches);
                 }
             }
 
-            // Wait for all fetch promises to be settled
-            await Promise.allSettled(fetchPromises);
+            this.assets = this.allUniqueAssets.filter(asset => asset.loaded);
+            this.totalPages = Math.ceil(this.assets.length / this.itemsPerPage);
+            this.loadPage();
         },
 
         displayAsset(asset) {
@@ -125,7 +137,8 @@ function vaultManager() {
 
         openModal(asset) {
             this.selectedAsset = asset;
-            this.selectedAsset.downloads = {}
+            this.selectedAsset.downloads = {};
+            updateSlideshow(this.selectedAsset);
 
             for (rel of this.selectedAsset.releaseInfo) {
                 rel.download = {};
@@ -180,7 +193,8 @@ const formatCompatibleApps = function(compatibleApps) {
     let sortedApps = compatibleApps.sort((a, b) => parseFloat(a) - parseFloat(b));
 
     // Initialize the chunks and the first chunk
-    let chunks = [], chunk = [sortedApps[0]];
+    let chunks = [],
+        chunk = [sortedApps[0]];
 
     // Iterate over the sorted version numbers, starting from the second one
     for (let i = 1; i < sortedApps.length; i++) {
@@ -192,7 +206,7 @@ const formatCompatibleApps = function(compatibleApps) {
         // add it to the current chunk
         if (major === prevMajor && minor === prevMinor + 1) {
             chunk.push(sortedApps[i]);
-        } else {  // Otherwise, push the current chunk into the list of chunks and start a new chunk
+        } else { // Otherwise, push the current chunk into the list of chunks and start a new chunk
             chunks.push(chunk);
             chunk = [sortedApps[i]];
         }
@@ -204,6 +218,28 @@ const formatCompatibleApps = function(compatibleApps) {
     // Map each chunk to a string, joining the first and last versions with a dash if the chunk has more than one version
     // Join the chunk strings with commas and return the result
     return chunks.map(chunk => chunk.length === 1 ? chunk[0] : `${chunk[0]}-${chunk[chunk.length - 1]}`).join(', ');
+}
+
+const updateSlideshow = function(selectedAsset) {
+      const slideshowContainer = document.querySelector('.uk-slideshow-items');
+  slideshowContainer.innerHTML = ''; // Clear existing items
+
+  if (selectedAsset && selectedAsset.keyImages) {
+    selectedAsset.keyImages.filter(i => i.type === 'Screenshot' && i.url).forEach(image => {
+      const li = document.createElement('li');
+      const img = document.createElement('img');
+      img.src = image.url;
+      img.alt = "";  // Set an appropriate alt text
+      img.setAttribute('uk-cover', '');
+      li.appendChild(img);
+      slideshowContainer.appendChild(li);
+    });
+  }
+
+  UIkit.slideshow(slideshowContainer.parentElement, {
+    animation: 'slide',
+    autoplay: true
+  });
 }
 
 const requestDownloadStatus = function(rel) {
