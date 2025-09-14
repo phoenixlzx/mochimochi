@@ -27,14 +27,11 @@ async function writeStatus(appName, statusObj) {
     if (!appName) return;
 
     try {
-        await fs.access(`${config.DATA_DIR}/status`);
+        await fs.access(`${config.DATA_DIR}/public/status`);
     } catch (err) {
-
         if (err.code === 'ENOENT') {
-            console.error(`Error accessing status directory: ${err}`);
-            fs.mkdir(`${config.DATA_DIR}/public/status`, { recursive: true });
+            await fs.mkdir(`${config.DATA_DIR}/public/status`, { recursive: true });
         }
-
     }
 
     try {
@@ -47,12 +44,12 @@ async function writeStatus(appName, statusObj) {
 async function readAllStatus() {
     try {
 
-        const statusFiles = await fs.readdir(`${config.DATA_DIR}/status`);
+        const statusFiles = await fs.readdir(`${config.DATA_DIR}/public/status`);
         let statuses = {};
 
-        for (s of statusFiles) {
+        for (const s of statusFiles) {
             try {
-                statuses[s.slice(0, s.lastIndexOf('.json'))] = JSON.parse(await fs.readFile(s));
+                statuses[s.slice(0, s.lastIndexOf('.json'))] = JSON.parse(await fs.readFile(`${config.DATA_DIR}/public/status/${s}`));
             } catch (err) {
                 console.error(`Error reading status file ${s}: ${err}`);
             }

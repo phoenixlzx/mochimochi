@@ -48,11 +48,15 @@ async function upload(appName) {
 
     } catch (err) {
 
+        if (err.code === 'ENOENT') {
+            throw new Error(`Archive file not found: ${zipFilePath}`);
+        }
+
         console.error(`Error uploading ${zipFilePath}: ${err}`);
 
         if (err.$metadata) {
             const abortCommand = new AbortMultipartUploadCommand({
-                Bucket: BUCKET_NAME,
+                Bucket: config.S3.bucket,
                 Key: `${appName}.zip`,
                 UploadId: err.$metadata.requestId,
             });
@@ -61,7 +65,7 @@ async function upload(appName) {
             console.error(`Abort upload of ${zipFilePath}: ${err}`);
         }
 
-        return;
+        throw err;
 
     }
 

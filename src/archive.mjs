@@ -18,8 +18,7 @@ async function archive(app) {
     try {
         await fs.access(source);
     } catch (err) {
-        console.error(`Error accessing source: ${err}`);
-        return;
+        throw new Error(`Source directory not found: ${source}`);
     }
 
     const files = await walk(source);

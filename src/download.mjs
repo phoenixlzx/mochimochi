@@ -57,6 +57,10 @@ async function download(args) {
 
         const manifestList = await manifestCache(args);
 
+        if (!manifestList || manifestList.length === 0) {
+            throw new Error(`No manifest found for ${args}`);
+        }
+
         let overAllProgress = 0;
 
         for (const [index, manifest] of manifestList.entries()) {

@@ -9,6 +9,7 @@ import { download } from './download.mjs';
 import { archive } from './archive.mjs';
 import { upload, getUrl } from './s3.mjs';
 import { clean } from './clean.mjs';
+import { manifestCache } from './manifest.mjs';
 
 import { readStatus, writeStatus } from './status.mjs';
 
@@ -83,6 +84,12 @@ async function handleTasks(appName) {
 
     try {
 
+        const manifestList = await manifestCache(appName);
+        
+        if (!manifestList || manifestList.length === 0) {
+            throw new Error(`Asset ${appName} not found in manifest`);
+        }
+
         console.log(`Server: Downloading ${appName}`);
         await download(appName);
 
@@ -102,7 +109,7 @@ async function handleTasks(appName) {
 
     } catch (err) {
 
-        await writeStatus(appName, { status: 'error', progress: 0, error: err });
+        await writeStatus(appName, { status: 'error', progress: 0, error: err.message || err });
         await serverCleanup(appName);
         console.error(`Error occurred in handleTasks: ${err}`);
 
