@@ -153,10 +153,12 @@ async function handleChunkDownload(url, app) {
     console.log(`Downloading ${url}`);
     const file = url.slice(url.lastIndexOf('_') + 1);
     try {
-        await writeBufferToFile(`${config.DATA_DIR}/chunk/${app}/${file}`, await downloadUrl(url));
+        const buffer = await downloadUrl(url);
+        await writeBufferToFile(`${config.DATA_DIR}/chunk/${app}/${file}`, buffer);
         console.log(`Downloaded ${url}`);
     } catch (error) {
         console.error(`Error downloading ${url}: ${error.message}`);
+        throw error;
     }
 }
 
@@ -260,15 +262,8 @@ async function downloadUrl(url) {
 }
 
 async function writeBufferToFile(file, buffer) {
-
     const dir = path.dirname(file);
-
-    try {
-        await fs.mkdir(dir, { recursive: true });
-        await fs.writeFile(file, buffer);
-        console.log(`Write to ${file}`)
-    } catch (err) {
-        console.error(`Error writing file: ${file}: ${err}`);
-    }
-
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(file, buffer);
+    console.log(`Write to ${file}`)
 }
