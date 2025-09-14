@@ -23,20 +23,17 @@ async function detail() {
     const batchSize = 50;
     for (let i = 0; i < uniqueAssets.length; i += batchSize) {
         const batch = uniqueAssets.slice(i, i + batchSize);
-        const detailIds = batch.map(asset => asset.listingIdentifier || asset.catalogItemId);
+        const catalogItemIds = batch.map(asset => asset.catalogItemId);
         
         try {
             console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(uniqueAssets.length/batchSize)} (${batch.length} assets)`);
-            const bulkDetails = await getBulkAssetDetails(detailIds);
+            const bulkDetails = await getBulkAssetDetails(catalogItemIds);
             
             console.log(`Received ${bulkDetails.length} details from bulk API`);
             
             for (const detail of bulkDetails) {
-                // Find the corresponding vault asset by matching the detail ID we sent
-                const vaultAsset = batch.find(asset => {
-                    const sentId = asset.listingIdentifier || asset.catalogItemId;
-                    return sentId === detail.catalogItemId;
-                });
+                // Find the corresponding vault asset by matching the catalogItemId we sent
+                const vaultAsset = batch.find(asset => asset.catalogItemId === detail.catalogItemId);
                 
                 if (vaultAsset) {
                     const processedDetail = processAssetDetail(detail, vaultAsset);
@@ -54,7 +51,6 @@ async function detail() {
                     console.log(`Saved detail for ${vaultAsset.title} (${filename}.json)`);
                 } else {
                     console.warn(`Could not find vault asset for detail ID: ${detail.catalogItemId}`);
-                    console.warn(`Available vault assets in batch: ${batch.map(a => a.listingIdentifier || a.catalogItemId).join(', ')}`);
                 }
             }
         } catch (err) {
@@ -62,8 +58,7 @@ async function detail() {
             
             for (const asset of batch) {
                 try {
-                    const detailId = asset.listingIdentifier || asset.catalogItemId;
-                    const assetDetails = await getBulkAssetDetails([detailId]);
+                    const assetDetails = await getBulkAssetDetails([asset.catalogItemId]);
                     
                     if (assetDetails.length > 0) {
                         const processedDetail = processAssetDetail(assetDetails[0], asset);
@@ -86,10 +81,10 @@ async function detail() {
 
 }
 
-async function getBulkAssetDetails(detailIds) {
-    console.log(`Fetching bulk details for ${detailIds.length} assets using IDs: ${detailIds.slice(0, 3).join(', ')}${detailIds.length > 3 ? '...' : ''}`);
+async function getBulkAssetDetails(catalogItemIds) {
+    console.log(`Fetching bulk details for ${catalogItemIds.length} assets using IDs: ${catalogItemIds.slice(0, 3).join(', ')}${catalogItemIds.length > 3 ? '...' : ''}`);
 
-    const formData = detailIds.map(id => `id=${id}`).join('&');
+    const formData = catalogItemIds.map(id => `nsItemId=ue:${id}`).join('&');
 
     const response = await makeAuthenticatedRequest(ENDPOINTS.bulk_catalog, {
         method: 'POST',
