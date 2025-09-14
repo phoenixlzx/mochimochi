@@ -44,7 +44,7 @@ function vaultManager() {
                     category: '',
                     author: '',
                     platforms: [],
-                    compatibleApps: [],
+                    compatibleApps: vaultAsset.engineVersions ? vaultAsset.engineVersions.map(v => v.replace('UE_', '')) : [],
                     keyImages: [],
                     releaseInfo: [],
                     url: `https://www.fab.com/listings/${formatUUID(listingId)}`
@@ -112,6 +112,10 @@ function vaultManager() {
                     typeof p === 'string' ? { key: p.toLowerCase(), value: p } : p
                 );
 
+                if (data.compatibleApps && data.compatibleApps.length > 0) {
+                    asset.compatibleApps = data.compatibleApps;
+                }
+
                 asset.releaseInfo = data.releaseInfo?.length ? data.releaseInfo : [{
                     appId: asset.appId,
                     platform: asset.platforms.map(p => p.value || p).join(', ') || 'Windows',
@@ -137,7 +141,7 @@ function vaultManager() {
 
         get filteredAssets() {
             if (!Array.isArray(this.allAssets)) return [];
-            
+
             let filtered = this.allAssets.filter(asset => asset && asset.loaded);
 
             if (this.searchQuery) {
@@ -182,7 +186,7 @@ function vaultManager() {
         changePage(direction) {
             const filtered = this.filteredAssets;
             const maxPages = Math.ceil(filtered.length / this.itemsPerPage) || 1;
-            
+
             if (direction === 'prev' && this.currentPage > 1) {
                 this.currentPage--;
             } else if (direction === 'next' && this.currentPage < maxPages) {
@@ -200,7 +204,7 @@ function vaultManager() {
         loadPage() {
             const filtered = this.filteredAssets || [];
             this.totalPages = Math.ceil(filtered.length / this.itemsPerPage) || 1;
-            
+
             if (this.currentPage > this.totalPages) {
                 this.currentPage = this.totalPages;
             }
@@ -230,7 +234,7 @@ function vaultManager() {
             });
 
             updateSlideshow(this.selectedAsset);
-            
+
             if (typeof UIkit !== 'undefined' && UIkit.modal) {
                 UIkit.modal('#modal-full').show();
             }
@@ -316,7 +320,7 @@ const formatCompatibleApps = function (compatibleApps) {
 const updateSlideshow = function (selectedAsset) {
     const slideshowContainer = document.querySelector('.uk-slideshow-items');
     if (!slideshowContainer) return;
-    
+
     slideshowContainer.innerHTML = '';
 
     const screenshots = selectedAsset.keyImages?.filter(img => img.type === 'Screenshot' && img.url) || [];

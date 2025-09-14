@@ -90,7 +90,8 @@ async function readVaultItems(url, authData) {
                                 namespace: item.assetNamespace,
                                 assetId: item.assetId,
                                 title: item.title,
-                                images: item.images || []
+                                images: item.images || [],
+                                engineVersions: version.engineVersions || []
                             };
                             
                             mappedItems.push(assetData);
