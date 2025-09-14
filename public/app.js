@@ -84,7 +84,7 @@ function vaultManager() {
                             asset.platforms = [];
                         }
                         asset.compatibleApps = assetData.compatibleApps || asset.compatibleApps;
-                        asset.url = asset.url || `https://www.fab.com/listings/${asset.catalogItemId}`;
+                        asset.url = asset.url || `https://www.fab.com/listings/${formatUUID(asset.catalogItemId)}`;
                         asset.seller = assetData.seller || asset.seller;
                         asset.description = assetData.description || asset.description;
                         asset.technicalDetails = assetData.technicalDetails;
@@ -267,6 +267,11 @@ function vaultManager() {
 
     };
 
+}
+
+const formatUUID = function(uuid) {
+    if (!uuid || uuid.length !== 32) return uuid;
+    return `${uuid.slice(0, 8)}-${uuid.slice(8, 12)}-${uuid.slice(12, 16)}-${uuid.slice(16, 20)}-${uuid.slice(20)}`;
 }
 
 const getPlatformIconClass = function(platformKey) {
