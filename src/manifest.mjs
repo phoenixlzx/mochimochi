@@ -258,19 +258,33 @@ async function downloadFabManifest(artifactId, requestBody, authData) {
         handleResponseCookies(response);
 
         if (!response.ok) {
-            console.log(`FAB API error for ${url}: ${response.status} ${response.statusText}`);
+            if (response.status === 403) {
+                console.error(`403 FORBIDDEN ERROR - FAB Manifest Download Debug Info:`);
+                console.error(`URL: ${url}`);
+                console.error(`Artifact ID: ${artifactId}`);
+                console.error(`Request Body:`, JSON.stringify(requestBody, null, 2));
+                console.error(`Request Headers:`, JSON.stringify(headers, null, 2));
+                console.error(`Response Status: ${response.status} ${response.statusText}`);
+                console.error(`Response Headers:`, JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+                console.error(`Auth Token Present: ${!!authData.access_token}`);
+                console.error(`Auth Token Length: ${authData.access_token?.length || 0}`);
+                console.error(`Auth Token Prefix: ${authData.access_token?.substring(0, 20)}...`);
+                console.error(`Cookie Header Present: ${!!cookieHeader}`);
+                console.error(`Cookie Header Length: ${cookieHeader?.length || 0}`);
+                
+                try {
+                    const errorBody = await response.text();
+                    console.error(`Response Body:`, errorBody);
+                } catch (bodyError) {
+                    console.error(`Could not read response body:`, bodyError.message);
+                }
+            } else {
+                console.log(`FAB API error for ${url}: ${response.status} ${response.statusText}`);
+            }
             return null;
         }
 
         const result = await response.json();
-        /** 
-            console.log(`FAB API Response for ${url}:`, {
-            hasResult: !!result,
-            keys: result ? Object.keys(result) : [],
-            downloadInfo: result?.downloadInfo?.length || 0
-        });
-        **/
-
         return result;
     } catch (error) {
         console.error(`Error calling FAB API ${url}:`, error);
@@ -335,7 +349,26 @@ async function tryDownloadManifest(distributionPoints) {
                 errorMessages.push(`Error parsing BIN manifest from ${url}: ${err}`);
             }
         } else {
-            errorMessages.push(`Request to ${url} returned error: ${response.status}`);
+            if (response.status === 403) {
+                const errorMsg = `403 FORBIDDEN ERROR - Manifest Download Debug Info:
+URL: ${url}
+Status: ${response.status} ${response.statusText}
+Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}
+CDN Tokens: ${JSON.stringify(cdnTokens, null, 2)}
+Cookie Header Present: ${!!cookieHeader}
+Cookie Header: ${cookieHeader || 'None'}`;
+                
+                try {
+                    const errorBody = await response.text();
+                    errorMessages.push(`${errorMsg}
+Response Body: ${errorBody}`);
+                } catch (bodyError) {
+                    errorMessages.push(`${errorMsg}
+Could not read response body: ${bodyError.message}`);
+                }
+            } else {
+                errorMessages.push(`Request to ${url} returned error: ${response.status} ${response.statusText}`);
+            }
         }
     }
 
