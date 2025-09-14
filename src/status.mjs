@@ -14,7 +14,7 @@ async function readStatus(appName) {
     }
 
     try {
-        const s = JSON.parse(await fs.readFile(`${config.DATA_DIR}/status/${appName}.json`, 'utf8'));
+        const s = JSON.parse(await fs.readFile(`${config.DATA_DIR}/public/status/${appName}.json`, 'utf8'));
         return s;
     } catch (err) {
         console.error(`Error reading status for ${appName}: ${err}`);
@@ -32,13 +32,13 @@ async function writeStatus(appName, statusObj) {
 
         if (err.code === 'ENOENT') {
             console.error(`Error accessing status directory: ${err}`);
-            fs.mkdir(`${config.DATA_DIR}/status`, { recursive: true });
+            fs.mkdir(`${config.DATA_DIR}/public/status`, { recursive: true });
         }
 
     }
 
     try {
-        await fs.writeFile(`${config.DATA_DIR}/status/${appName}.json`, JSON.stringify(statusObj));
+        await fs.writeFile(`${config.DATA_DIR}/public/status/${appName}.json`, JSON.stringify(statusObj));
     } catch (err) {
         console.error(`Error updating status for ${appName}: ${err}`);
     }

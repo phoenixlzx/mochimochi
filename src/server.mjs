@@ -1,4 +1,7 @@
 import Fastify from 'fastify'
+import fastifyStatic from '@fastify/static'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
 
 import { URL } from 'url';
 
@@ -14,6 +17,9 @@ import config from '../config.mjs';
 export {
     server
 };
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const fastify = Fastify({
     logger: true
@@ -112,6 +118,17 @@ async function serverCleanup(appName) {
 }
 
 async function server() {
+
+    await fastify.register(fastifyStatic, {
+        root: join(__dirname, '..', 'public'),
+        prefix: '/'
+    });
+
+    await fastify.register(fastifyStatic, {
+        root: join(__dirname, '..', 'data', 'public'),
+        prefix: '/data/',
+        decorateReply: false
+    });
 
     fastify.listen({ port: config.PORT, host: config.HOST }, (err, address) => {
         if (err) throw err;

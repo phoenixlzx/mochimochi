@@ -51,11 +51,18 @@ class ProcessManager extends EventEmitter {
 
 }
 
-async function fetchJson(url, headers) {
+async function fetchJson(url, headers, method = 'GET', body = null) {
 
-    const response = await fetch(url, {
+    const options = {
+        method: method,
         headers: headers
-    });
+    };
+
+    if (body) {
+        options.body = body;
+    }
+
+    const response = await fetch(url, options);
 
     return await response.json();
 

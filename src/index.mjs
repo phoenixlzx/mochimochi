@@ -25,28 +25,28 @@ export {
     archive
 };
 
-function mochi(args) {
+async function mochi(args) {
     switch (args[0]) {
         case 'auth':
-            auth();
+            await auth();
             break;
         case 'vault':
-            vault();
+            await vault();
             break;
         case 'detail':
-            detail();
+            await detail();
             break;
         case 'manifest':
-            manifest();
+            await manifest();
             break;
         case 'download':
-            download(args[1]);
+            await download(args[1]);
             break;
         case 'archive':
-            archive(args[1]);
+            await archive(args[1]);
             break;
         case 'server':
-            server();
+            await server();
             break;
         default:
             help();
@@ -85,8 +85,9 @@ for (const d of [
     'archive',
     'chunk',
     'manifest',
-    'status',
-    'detail'
+    'public',
+    'public/status',
+    'public/detail'
 ]) {
     try {
         await fs.access(`${config.DATA_DIR}/${d}`);
@@ -100,4 +101,4 @@ for (const d of [
     }
 }
 
-mochi(args);
+await mochi(args);

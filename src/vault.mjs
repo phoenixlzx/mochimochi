@@ -8,17 +8,24 @@ import config from '../config.mjs';
 
 export {
     vault,
-    vaultCache
+    vaultCache,
+    readVaultItems
 };
 
 async function vault() {
 
     const authData = await auth();
-    const vaultData = await readVaultItems(ENDPOINTS.vault, authData);
+    
+    if (!authData.account_id) {
+        throw new Error('Account ID required for UE library access');
+    }
+    
+    const vaultUrl = ENDPOINTS.ue_library(authData.account_id);
+    const vaultData = await readVaultItems(vaultUrl, authData);
 
     try {
 
-        await fs.writeFile(`${config.DATA_DIR}/vault.json`, JSON.stringify(vaultData, null, 2), 'utf8');
+        await fs.writeFile(`${config.DATA_DIR}/public/vault.json`, JSON.stringify(vaultData, null, 2), 'utf8');
         return vaultData;
 
     } catch (err) {
@@ -34,7 +41,7 @@ async function vaultCache() {
 
     try {
 
-        const cache = JSON.parse(await fs.readFile(`${config.DATA_DIR}/vault.json`, 'utf8'));
+        const cache = JSON.parse(await fs.readFile(`${config.DATA_DIR}/public/vault.json`, 'utf8'));
 
         if (Array.isArray(cache)) {
             return cache;
@@ -58,36 +65,52 @@ async function vaultCache() {
 
 async function readVaultItems(url, authData) {
 
-    let hasNext = 1;
-    let cursor;
-    let vaultItems = [];
+    let allItems = [];
+    let nextCursor = null;
+    let currentUrl = url;
 
-    while (hasNext) {
-
-        let query = 'includeMetadata=true';
-
-        if (cursor) {
-            query = `${query}&cursor=${cursor}`
-        }
-
-        let data = await readOneVaultPage(`${url}?${query}`, authData);
-
-        if (Array.isArray(data.records)) {
-            vaultItems = [...vaultItems, ...data.records];
-            if (data.responseMetadata && data.responseMetadata.nextCursor) {
-                cursor = data.responseMetadata.nextCursor
-            } else {
-                hasNext = 0;
+    do {
+        const response = await readOneVaultPage(currentUrl, authData);
+        
+        if (response && response.results && Array.isArray(response.results)) {
+            const mappedItems = [];
+            
+            response.results.forEach(item => {
+                if (item.projectVersions && Array.isArray(item.projectVersions)) {
+                    item.projectVersions.forEach(version => {
+                        if (version.artifactId) {
+                            mappedItems.push({
+                                catalogItemId: item.legacyItemId || item.assetId,
+                                artifactId: version.artifactId,
+                                appName: version.artifactId,
+                                namespace: item.assetNamespace,
+                                assetId: item.assetId,
+                                title: item.title
+                            });
+                        }
+                    });
+                }
+            });
+            
+            allItems = allItems.concat(mappedItems);
+            
+            nextCursor = response.cursors && response.cursors.next;
+            if (nextCursor) {
+                currentUrl = `${url}&cursor=${encodeURIComponent(nextCursor)}`;
             }
         } else {
-            hasNext = 0;
+            nextCursor = null;
         }
+        
+        console.log(`Retrieved ${allItems.length} items so far...`);
+        
+    } while (nextCursor);
 
-    }
-
-    return vaultItems;
+    return allItems;
 
 }
+
+
 
 async function readOneVaultPage(url, authData) {
 

@@ -13,7 +13,10 @@ import * as utils from './utils.mjs'
 import config from '../config.mjs';
 
 export {
-    download
+    download,
+    getChunkList,
+    getFileList,
+    concatChunkToFile
 };
 
 // TODO optimize download & concat process to minimize disk writes
@@ -125,7 +128,17 @@ async function getChunkList(manifest) {
     let list = [];
 
     for (const guid in manifest.ChunkHashList) {
-        list.push(`${manifest.CloudDir}/${chunkversion}/${manifest.DataGroupList[guid].slice(-2)}/${utils.blob2hex(manifest.ChunkHashList[guid])}_${guid}.chunk`);
+        const chunkUrl = `${manifest.CloudDir}/${chunkversion}/${manifest.DataGroupList[guid].slice(-2)}/${utils.blob2hex(manifest.ChunkHashList[guid])}_${guid}.chunk`;
+        
+        if (manifest.CDNTokens && Object.keys(manifest.CDNTokens).length > 0) {
+            const query = new URLSearchParams();
+            for (const [tokenName, tokenValue] of Object.entries(manifest.CDNTokens)) {
+                query.append(tokenName, tokenValue);
+            }
+            list.push(`${chunkUrl}?${query}`);
+        } else {
+            list.push(chunkUrl);
+        }
     }
 
     return list;
