@@ -14,7 +14,6 @@ function vaultManager() {
         loadedCount: 0,
 
         async init() {
-            window.vaultManagerInstance = this;
             
             const response = await fetch(`/data/vault.json?t=${Date.now()}`);
             const vaultAssets = await response.json();
@@ -40,7 +39,7 @@ function vaultManager() {
                     };
                 });
 
-            console.log(`Loaded ${this.allAssets.length} unique assets from vault`);
+
             await this.loadAssetDetails();
             this.buildFilters();
             this.loadPage();
@@ -59,14 +58,11 @@ function vaultManager() {
         async loadAssetDetail(asset) {
             try {
                 let response;
-                let detailFile = asset.catalogItemId;
                 
                 if (asset.listingIdentifier) {
                     const listingFile = asset.listingIdentifier.replace(/-/g, '');
                     response = await fetch(`/data/detail/${listingFile}.json`);
-                    if (response.ok) {
-                        detailFile = listingFile;
-                    } else {
+                    if (!response.ok) {
                         response = await fetch(`/data/detail/${asset.catalogItemId}.json`);
                     }
                 } else {
@@ -116,7 +112,6 @@ function vaultManager() {
                 asset.loaded = true;
                 this.loadedCount++;
             } catch (error) {
-                console.warn(`Failed to load detail for ${asset.catalogItemId}:`, error.message);
                 asset.loaded = true;
                 this.loadedCount++;
             }
@@ -360,50 +355,3 @@ const dateOptions = {
     minute: '2-digit'
 }
 
-// Debug function to help identify UUID mismatches
-window.debugAssetUUIDs = function() {
-    const manager = Alpine.store('vaultManager') || window.vaultManagerInstance;
-    if (!manager) {
-        console.log('Vault manager not found');
-        return;
-    }
-    
-    console.log('=== Asset UUID Debug Info ===');
-    console.log(`Total assets: ${manager.allAssets.length}`);
-    console.log(`Loaded assets: ${manager.allAssets.filter(a => a.loaded).length}`);
-    
-    // Show first 10 assets with their UUIDs and load status
-    manager.allAssets.slice(0, 10).forEach(asset => {
-        console.log(`CatalogId: ${asset.catalogItemId} | ListingId: ${asset.listingIdentifier || 'None'} | ${asset.title} | Loaded: ${asset.loaded}`);
-    });
-    
-    // Check for specific UUID if provided
-    const targetUUID = '9d8857a34a7a46e3b11a61268dc0d1f4';
-    const asset = manager.allAssets.find(a => a.catalogItemId === targetUUID);
-    if (asset) {
-        console.log('=== Target Asset Details ===');
-        console.log(`Catalog ID: ${asset.catalogItemId}`);
-        console.log(`Listing ID: ${asset.listingIdentifier || 'None'}`);
-        console.log(`Title: ${asset.title}`);
-        console.log(`URL: ${asset.url}`);
-        console.log(`Loaded: ${asset.loaded}`);
-        console.log(`App ID: ${asset.appId}`);
-        if (asset.loaded) {
-            console.log(`Thumbnail: ${asset.thumbnail}`);
-            console.log(`Category: ${asset.category}`);
-            console.log(`Author: ${asset.author}`);
-        }
-    } else {
-        console.log(`Asset with UUID ${targetUUID} not found in vault`);
-    }
-    
-    // Check for assets with ListingIdentifier
-    const assetsWithListing = manager.allAssets.filter(a => a.listingIdentifier);
-    console.log(`=== Assets with ListingIdentifier: ${assetsWithListing.length} ===`);
-    assetsWithListing.slice(0, 5).forEach(asset => {
-        console.log(`${asset.catalogItemId} -> ${asset.listingIdentifier}`);
-    });
-};
-
-// Make vault manager globally accessible for debugging
-window.vaultManagerInstance = null;

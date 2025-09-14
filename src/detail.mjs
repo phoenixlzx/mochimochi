@@ -29,6 +29,8 @@ async function detail() {
             console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(uniqueAssets.length/batchSize)} (${batch.length} assets)`);
             const bulkDetails = await getBulkAssetDetails(detailIds);
             
+            console.log(`Received ${bulkDetails.length} details from bulk API`);
+            
             for (const detail of bulkDetails) {
                 // Find the corresponding vault asset by matching the detail ID we sent
                 const vaultAsset = batch.find(asset => {
@@ -49,9 +51,10 @@ async function detail() {
                         await fs.writeFile(`${config.DATA_DIR}/public/detail/${vaultAsset.catalogItemId}.json`, JSON.stringify(processedDetail));
                     }
                     
-                    console.log(`Saved detail for ${vaultAsset.title} (${filename})`);
+                    console.log(`Saved detail for ${vaultAsset.title} (${filename}.json)`);
                 } else {
                     console.warn(`Could not find vault asset for detail ID: ${detail.catalogItemId}`);
+                    console.warn(`Available vault assets in batch: ${batch.map(a => a.listingIdentifier || a.catalogItemId).join(', ')}`);
                 }
             }
         } catch (err) {
@@ -105,6 +108,8 @@ async function getBulkAssetDetails(detailIds) {
     }
 
     const data = await response.json();
+    
+    console.log(`Bulk API returned ${Object.keys(data).length} items`);
     
     return Object.values(data).map(item => ({
         catalogItemId: item.id,
