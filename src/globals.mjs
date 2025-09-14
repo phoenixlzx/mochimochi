@@ -28,7 +28,7 @@ const ENDPOINTS = {
         return `https://www.fab.com/e/artifacts/${artifactId}/manifest`;
     },
 
-    bulk_catalog: "https://catalog-public-service-prod.ak.epicgames.com/catalog/api/shared/bulk/items"
+    bulk_catalog: "https://catalog-public-service-prod.ak.epicgames.com/catalog/api/shared/bulk/namespaces/items?includeDLCDetails=false&includeMainGameDetails=false&country=US&locale=en"
 
 };
 
