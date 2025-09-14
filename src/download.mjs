@@ -98,7 +98,9 @@ async function download(args) {
 
             fileConcatenator.on('complete', () => console.log('File concatenation complete.'));
 
+            console.log(`Starting file concatenation for ${manifest.AppNameString}`);
             await fileConcatenator.process();
+            console.log(`File concatenation completed for ${manifest.AppNameString}`);
 
             await writeStatus(manifest.AppNameString, {
                 status: 'Download complete',
@@ -207,24 +209,31 @@ async function concatChunkToFile(fileParams) {
 
     for (const chunk of fileParams.chunks) {
 
-        const rawData = await fs.readFile(chunk.path);
-        let finalData;
-        const headerSize = rawData[8];
+        try {
+            console.log(`Reading chunk: ${chunk.path}`);
+            const rawData = await fs.readFile(chunk.path);
+            let finalData;
+            const headerSize = rawData[8];
 
-        if (rawData[40] ? 1 : 0) {
-            finalData = await decompress(rawData.subarray(headerSize), chunk.path);
-        } else {
-            finalData = rawData.subarray(rawData[8]);
+            if (rawData[40] ? 1 : 0) {
+                finalData = await decompress(rawData.subarray(headerSize), chunk.path);
+            } else {
+                finalData = rawData.subarray(rawData[8]);
+            }
+
+            finalData.copy(chunkBuf, chunk.start, chunk.offset, chunk.offset + chunk.size);
+        } catch (err) {
+            console.error(`Error reading chunk ${chunk.path}: ${err.message}`);
+            throw err;
         }
-
-        finalData.copy(chunkBuf, chunk.start, chunk.offset, chunk.offset + chunk.size);
 
     }
 
     try {
         await writeBufferToFile(fileParams.fileName, chunkBuf);
     } catch (err) {
-        console.error(err);
+        console.error(`Error writing file ${fileParams.fileName}: ${err.message}`);
+        throw err;
     }
 
 }

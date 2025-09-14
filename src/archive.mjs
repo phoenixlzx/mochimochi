@@ -29,7 +29,6 @@ async function archive(app) {
 
     const zipOutput = createWriteStream(destination);
 
-    zipOutput.on('close', () => console.log(`Zip saved to ${destination}`));
     zipOutput.on('end', () => console.log('Data has been drained'));
 
     archive.on('warning', function(err) {
@@ -48,18 +47,31 @@ async function archive(app) {
 
     for (const [index, file] of files.entries()) {
         const name = file.replace(srcDir, '');
-        const readStream = createReadStream(file);
-
+        
         console.log(`Zipping ${file}`);
         await writeStatus(app, {
             status: 'Zipping up',
             progress: (index + 1) / files.length
         });
 
-        archive.append(readStream, { name: name });
+        try {
+            await fs.access(file);
+            const readStream = createReadStream(file);
+            archive.append(readStream, { name: name });
+        } catch (err) {
+            console.error(`Error accessing file ${file}: ${err.message}`);
+            throw err;
+        }
     }
 
-    await archive.finalize();
+    return new Promise((resolve, reject) => {
+        zipOutput.on('close', () => {
+            console.log(`Zip saved to ${destination}`);
+            resolve();
+        });
+        zipOutput.on('error', reject);
+        archive.finalize();
+    });
 }
 
 async function walk(dir) {
