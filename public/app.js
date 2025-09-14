@@ -33,6 +33,7 @@ function vaultManager() {
             this.allAssets = uniqueAssets.map(vaultAsset => {
                 const primaryId = vaultAsset.catalogItemId || vaultAsset.listingIdentifier;
                 const listingId = vaultAsset.listingIdentifier || vaultAsset.catalogItemId;
+                const compatibleApps = vaultAsset.engineVersions ? vaultAsset.engineVersions.map(v => v.replace('UE_', '')) : [];
                 return {
                     catalogItemId: vaultAsset.catalogItemId,
                     listingIdentifier: vaultAsset.listingIdentifier,
@@ -44,7 +45,7 @@ function vaultManager() {
                     category: '',
                     author: '',
                     platforms: [],
-                    compatibleApps: vaultAsset.engineVersions ? vaultAsset.engineVersions.map(v => v.replace('UE_', '')) : [],
+                    compatibleApps: compatibleApps,
                     keyImages: [],
                     releaseInfo: [],
                     url: `https://www.fab.com/listings/${formatUUID(listingId)}`
@@ -102,8 +103,6 @@ function vaultManager() {
                 asset.keyImages = data.keyImages || [];
                 asset.licenses = data.licenses || [];
                 asset.assetFormats = data.assetFormats || [];
-                asset.compatibleApps = data.compatibleApps || [];
-
                 asset.thumbnail = data.keyImages?.find(img => img.type === 'Thumbnail')?.url ||
                     data.keyImages?.find(img => img.type === 'Featured')?.url ||
                     data.keyImages?.find(img => img.type === 'Screenshot')?.url || '';
@@ -112,9 +111,7 @@ function vaultManager() {
                     typeof p === 'string' ? { key: p.toLowerCase(), value: p } : p
                 );
 
-                if (data.compatibleApps && data.compatibleApps.length > 0) {
-                    asset.compatibleApps = data.compatibleApps;
-                }
+
 
                 asset.releaseInfo = data.releaseInfo?.length ? data.releaseInfo : [{
                     appId: asset.appId,
