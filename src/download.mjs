@@ -105,8 +105,6 @@ async function download(args) {
                 progress: 1,
             });
 
-            await clean(`chunk/${manifest.AppNameString}`);
-
         }
 
     }

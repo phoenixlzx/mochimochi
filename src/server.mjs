@@ -120,6 +120,7 @@ async function handleTasks(appName) {
 }
 
 async function serverCleanup(appName) {
+    await clean(`chunk/${appName}`);
     await clean(`asset/${appName}`);
     await clean(`archive/${appName}.zip`);
 }
