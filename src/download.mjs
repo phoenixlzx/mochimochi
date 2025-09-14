@@ -151,7 +151,8 @@ async function getChunkList(manifest) {
 
 async function handleChunkDownload(url, app) {
     console.log(`Downloading ${url}`);
-    const file = url.slice(url.lastIndexOf('_') + 1);
+    const urlWithoutQuery = url.split('?')[0];
+    const file = urlWithoutQuery.slice(urlWithoutQuery.lastIndexOf('_') + 1);
     try {
         const buffer = await downloadUrl(url);
         await writeBufferToFile(`${config.DATA_DIR}/chunk/${app}/${file}`, buffer);
