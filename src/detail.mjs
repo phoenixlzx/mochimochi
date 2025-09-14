@@ -23,36 +23,70 @@ async function detail() {
     const batchSize = 50;
     for (let i = 0; i < uniqueAssets.length; i += batchSize) {
         const batch = uniqueAssets.slice(i, i + batchSize);
+        const detailIds = batch.map(asset => asset.listingIdentifier || asset.catalogItemId);
         
-        for (const asset of batch) {
-            try {
-                const detailId = asset.listingIdentifier || asset.catalogItemId;
-                const assetDetails = await getBulkAssetDetails([detailId]);
+        try {
+            console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(uniqueAssets.length/batchSize)} (${batch.length} assets)`);
+            const bulkDetails = await getBulkAssetDetails(detailIds);
+            
+            for (const detail of bulkDetails) {
+                // Find the corresponding vault asset by matching the detail ID we sent
+                const vaultAsset = batch.find(asset => {
+                    const sentId = asset.listingIdentifier || asset.catalogItemId;
+                    return sentId === detail.catalogItemId;
+                });
                 
-                if (assetDetails.length > 0) {
-                    const processedDetail = processAssetDetail(assetDetails[0], asset);
-                    const filename = asset.listingIdentifier ? 
-                        asset.listingIdentifier.replace(/-/g, '') : 
-                        asset.catalogItemId;
+                if (vaultAsset) {
+                    const processedDetail = processAssetDetail(detail, vaultAsset);
+                    
+                    const filename = vaultAsset.listingIdentifier ? 
+                        vaultAsset.listingIdentifier.replace(/-/g, '') : 
+                        vaultAsset.catalogItemId;
                     
                     await fs.writeFile(`${config.DATA_DIR}/public/detail/${filename}.json`, JSON.stringify(processedDetail));
                     
-                    if (asset.listingIdentifier && asset.listingIdentifier !== asset.catalogItemId) {
-                        await fs.writeFile(`${config.DATA_DIR}/public/detail/${asset.catalogItemId}.json`, JSON.stringify(processedDetail));
+                    if (vaultAsset.listingIdentifier && vaultAsset.listingIdentifier !== vaultAsset.catalogItemId) {
+                        await fs.writeFile(`${config.DATA_DIR}/public/detail/${vaultAsset.catalogItemId}.json`, JSON.stringify(processedDetail));
                     }
+                    
+                    console.log(`Saved detail for ${vaultAsset.title} (${filename})`);
+                } else {
+                    console.warn(`Could not find vault asset for detail ID: ${detail.catalogItemId}`);
                 }
-            } catch (err) {
-                console.error(`Failed to get detail for ${asset.catalogItemId}: ${err}`);
+            }
+        } catch (err) {
+            console.error(`Bulk detail request failed for batch, falling back to individual requests: ${err}`);
+            
+            for (const asset of batch) {
+                try {
+                    const detailId = asset.listingIdentifier || asset.catalogItemId;
+                    const assetDetails = await getBulkAssetDetails([detailId]);
+                    
+                    if (assetDetails.length > 0) {
+                        const processedDetail = processAssetDetail(assetDetails[0], asset);
+                        const filename = asset.listingIdentifier ? 
+                            asset.listingIdentifier.replace(/-/g, '') : 
+                            asset.catalogItemId;
+                        
+                        await fs.writeFile(`${config.DATA_DIR}/public/detail/${filename}.json`, JSON.stringify(processedDetail));
+                        
+                        if (asset.listingIdentifier && asset.listingIdentifier !== asset.catalogItemId) {
+                            await fs.writeFile(`${config.DATA_DIR}/public/detail/${asset.catalogItemId}.json`, JSON.stringify(processedDetail));
+                        }
+                    }
+                } catch (individualErr) {
+                    console.error(`Failed to get detail for ${asset.catalogItemId}: ${individualErr}`);
+                }
             }
         }
     }
 
 }
 
-async function getBulkAssetDetails(catalogItemIds) {
-    console.log(`Fetching bulk details for ${catalogItemIds.length} assets`);
+async function getBulkAssetDetails(detailIds) {
+    console.log(`Fetching bulk details for ${detailIds.length} assets using IDs: ${detailIds.slice(0, 3).join(', ')}${detailIds.length > 3 ? '...' : ''}`);
 
-    const formData = catalogItemIds.map(id => `id=${id}`).join('&');
+    const formData = detailIds.map(id => `id=${id}`).join('&');
 
     const response = await makeAuthenticatedRequest(ENDPOINTS.bulk_catalog, {
         method: 'POST',
@@ -66,7 +100,8 @@ async function getBulkAssetDetails(catalogItemIds) {
     });
 
     if (!response.ok) {
-        throw new Error(`Bulk catalog request failed: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Bulk catalog request failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
