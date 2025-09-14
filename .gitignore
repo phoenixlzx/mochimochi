@@ -6,6 +6,7 @@
 node_modules
 test/*
 data/*
+ref/*
 
 config.js
 config.mjs
