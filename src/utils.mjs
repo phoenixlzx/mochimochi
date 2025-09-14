@@ -19,19 +19,31 @@ export {
 
 class ProcessManager extends EventEmitter {
 
-    constructor(items, options, threadFunc, maxConcurrency = 1) {
+    constructor(items, options, threadFunc, maxConcurrency = 1, rateLimitMs = 0) {
         super();
         this.items = items;
         this.options = options;
         this.threadFunc = threadFunc;
         this.maxConcurrency = maxConcurrency;
+        this.rateLimitMs = rateLimitMs;
         this.currentIndex = 0;
         this.completedCount = 0;
+        this.lastRequestTime = 0;
     }
 
     async processItem() {
         if (this.currentIndex < this.items.length) {
             const item = this.items[this.currentIndex++];
+            
+            if (this.rateLimitMs > 0) {
+                const now = Date.now();
+                const timeSinceLastRequest = now - this.lastRequestTime;
+                if (timeSinceLastRequest < this.rateLimitMs) {
+                    await new Promise(resolve => setTimeout(resolve, this.rateLimitMs - timeSinceLastRequest));
+                }
+                this.lastRequestTime = Date.now();
+            }
+            
             await this.threadFunc(item, this.options);
             this.completedCount++;
             this.emit('progress', this.completedCount / this.items.length);

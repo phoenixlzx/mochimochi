@@ -98,7 +98,7 @@ async function manifest() {
 
     if (authData.access_token && vaultData.length) {
         try {
-            const manifestDownloader = new utils.ProcessManager(vaultData, null, downloadManifest, 10);
+            const manifestDownloader = new utils.ProcessManager(vaultData, null, downloadManifest, 5, 500);
             manifestDownloader.on('progress', progress => console.log(`Manifest Download Progress: ${Math.ceil(progress * 100)}%`));
             manifestDownloader.on('complete', () => console.log('Manifest download complete.'));
             await manifestDownloader.process();
@@ -235,61 +235,92 @@ async function identifyManifest(manifest, manifestListCache) {
 async function downloadFabManifest(artifactId, requestBody, authData) {
     const url = ENDPOINTS.fab_manifest(artifactId);
     
-    const headers = {
-        "Content-Type": "application/json",
-        "Authorization": `bearer ${authData.access_token}`,
-        "User-Agent": VARS.client_ua,
-        "Accept": "*/*",
-        "Accept-Encoding": "deflate, gzip"
-    };
+    const maxRetries = 3;
+    const baseDelay = 2000;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const headers = {
+            "Content-Type": "application/json",
+            "Authorization": `bearer ${authData.access_token}`,
+            "User-Agent": VARS.client_ua,
+            "Accept": "*/*",
+            "Accept-Encoding": "deflate, gzip",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin"
+        };
 
-    const cookieHeader = getCookieHeader();
-    if (cookieHeader) {
-        headers.Cookie = cookieHeader;
-    }
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(requestBody)
-        });
-
-        handleResponseCookies(response);
-
-        if (!response.ok) {
-            if (response.status === 403) {
-                console.error(`403 FORBIDDEN ERROR - FAB Manifest Download Debug Info:`);
-                console.error(`URL: ${url}`);
-                console.error(`Artifact ID: ${artifactId}`);
-                console.error(`Request Body:`, JSON.stringify(requestBody, null, 2));
-                console.error(`Request Headers:`, JSON.stringify(headers, null, 2));
-                console.error(`Response Status: ${response.status} ${response.statusText}`);
-                console.error(`Response Headers:`, JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
-                console.error(`Auth Token Present: ${!!authData.access_token}`);
-                console.error(`Auth Token Length: ${authData.access_token?.length || 0}`);
-                console.error(`Auth Token Prefix: ${authData.access_token?.substring(0, 20)}...`);
-                console.error(`Cookie Header Present: ${!!cookieHeader}`);
-                console.error(`Cookie Header Length: ${cookieHeader?.length || 0}`);
-                
-                try {
-                    const errorBody = await response.text();
-                    console.error(`Response Body:`, errorBody);
-                } catch (bodyError) {
-                    console.error(`Could not read response body:`, bodyError.message);
-                }
-            } else {
-                console.log(`FAB API error for ${url}: ${response.status} ${response.statusText}`);
-            }
-            return null;
+        const cookieHeader = getCookieHeader();
+        if (cookieHeader) {
+            headers.Cookie = cookieHeader;
         }
 
-        const result = await response.json();
-        return result;
-    } catch (error) {
-        console.error(`Error calling FAB API ${url}:`, error);
-        return null;
+        try {
+            if (attempt > 1) {
+                const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000;
+                console.log(`Retrying FAB manifest download (attempt ${attempt}/${maxRetries}) after ${Math.round(delay)}ms delay...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(requestBody)
+            });
+
+            handleResponseCookies(response);
+
+            if (!response.ok) {
+                if (response.status === 403) {
+                    if (attempt === maxRetries) {
+                        console.error(`403 FORBIDDEN ERROR - FAB Manifest Download Debug Info:`);
+                        console.error(`URL: ${url}`);
+                        console.error(`Artifact ID: ${artifactId}`);
+                        console.error(`Request Body:`, JSON.stringify(requestBody, null, 2));
+                        console.error(`Request Headers:`, JSON.stringify(headers, null, 2));
+                        console.error(`Response Status: ${response.status} ${response.statusText}`);
+                        console.error(`Response Headers:`, JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+                        console.error(`Auth Token Present: ${!!authData.access_token}`);
+                        console.error(`Auth Token Length: ${authData.access_token?.length || 0}`);
+                        console.error(`Auth Token Prefix: ${authData.access_token?.substring(0, 20)}...`);
+                        console.error(`Cookie Header Present: ${!!cookieHeader}`);
+                        console.error(`Cookie Header Length: ${cookieHeader?.length || 0}`);
+                        
+                        try {
+                            const errorBody = await response.text();
+                            console.error(`Response Body:`, errorBody);
+                        } catch (bodyError) {
+                            console.error(`Could not read response body:`, bodyError.message);
+                        }
+                    } else {
+                        console.log(`Got 403 for ${artifactId}, will retry (attempt ${attempt}/${maxRetries})`);
+                    }
+                    continue;
+                } else {
+                    console.log(`FAB API error for ${url}: ${response.status} ${response.statusText}`);
+                    return null;
+                }
+            }
+
+            const result = await response.json();
+            if (attempt > 1) {
+                console.log(`Successfully downloaded manifest for ${artifactId} on attempt ${attempt}`);
+            }
+            return result;
+        } catch (error) {
+            if (attempt === maxRetries) {
+                console.error(`Error calling FAB API ${url}:`, error);
+                return null;
+            } else {
+                console.log(`Network error for ${artifactId}, will retry (attempt ${attempt}/${maxRetries}): ${error.message}`);
+            }
+        }
     }
+    
+    return null;
 }
 
 async function tryDownloadManifest(distributionPoints) {
@@ -310,64 +341,89 @@ async function tryDownloadManifest(distributionPoints) {
             }
         }
 
-        const headers = {
-            "Content-Type": "application/json",
-            "User-Agent": VARS.client_ua
-        };
+        const maxRetries = 3;
+        const baseDelay = 1500;
+        let success = false;
 
-        const cookieHeader = getCookieHeader();
-        if (cookieHeader) {
-            headers.Cookie = cookieHeader;
-        }
+        for (let attempt = 1; attempt <= maxRetries && !success; attempt++) {
+            const headers = {
+                "Content-Type": "application/json",
+                "User-Agent": VARS.client_ua,
+                "Accept": "*/*",
+                "Accept-Encoding": "deflate, gzip",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache"
+            };
 
-        const response = await fetch(url, { headers });
-
-        if (response.ok) {
-            let manifest;
-            const resp = new Buffer.from(await response.arrayBuffer());
-            const clouddir = url.slice(0, url.lastIndexOf('/'));
-
-            try {
-                manifest = JSON.parse(resp.toString());
-                manifest['CloudDir'] = clouddir;
-                manifest['CDNTokens'] = cdnTokens;
-                return manifest;
-            } catch (err) {
-                errorMessages.push(`Error parsing JSON manifest from ${url}: ${err}`);
+            const cookieHeader = getCookieHeader();
+            if (cookieHeader) {
+                headers.Cookie = cookieHeader;
             }
 
             try {
-                if (resp.readUInt32LE(0) === 0x44BEC00C) {
-                    manifest = await manifestBinaryHandler(resp);
-                    manifest['CloudDir'] = clouddir;
-                    manifest['CDNTokens'] = cdnTokens;
-                    return manifest;
-                } else {
-                    throw new Error('Invalid manifest: Header Magic not match.');
+                if (attempt > 1) {
+                    const delay = baseDelay * attempt + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
                 }
-            } catch (err) {
-                errorMessages.push(`Error parsing BIN manifest from ${url}: ${err}`);
-            }
-        } else {
-            if (response.status === 403) {
-                const errorMsg = `403 FORBIDDEN ERROR - Manifest Download Debug Info:
+
+                const response = await fetch(url, { headers });
+
+                if (response.ok) {
+                    let manifest;
+                    const resp = new Buffer.from(await response.arrayBuffer());
+                    const clouddir = url.slice(0, url.lastIndexOf('/'));
+
+                    try {
+                        manifest = JSON.parse(resp.toString());
+                        manifest['CloudDir'] = clouddir;
+                        manifest['CDNTokens'] = cdnTokens;
+                        return manifest;
+                    } catch (err) {
+                        errorMessages.push(`Error parsing JSON manifest from ${url}: ${err}`);
+                    }
+
+                    try {
+                        if (resp.readUInt32LE(0) === 0x44BEC00C) {
+                            manifest = await manifestBinaryHandler(resp);
+                            manifest['CloudDir'] = clouddir;
+                            manifest['CDNTokens'] = cdnTokens;
+                            return manifest;
+                        } else {
+                            throw new Error('Invalid manifest: Header Magic not match.');
+                        }
+                    } catch (err) {
+                        errorMessages.push(`Error parsing BIN manifest from ${url}: ${err}`);
+                    }
+                } else {
+                    if (response.status === 403 && attempt < maxRetries) {
+                        console.log(`Got 403 for manifest ${url}, retrying (attempt ${attempt}/${maxRetries})`);
+                        continue;
+                    } else if (response.status === 403) {
+                        const errorMsg = `403 FORBIDDEN ERROR - Manifest Download Debug Info:
 URL: ${url}
 Status: ${response.status} ${response.statusText}
 Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}
 CDN Tokens: ${JSON.stringify(cdnTokens, null, 2)}
 Cookie Header Present: ${!!cookieHeader}
 Cookie Header: ${cookieHeader || 'None'}`;
-                
-                try {
-                    const errorBody = await response.text();
-                    errorMessages.push(`${errorMsg}
+                        
+                        try {
+                            const errorBody = await response.text();
+                            errorMessages.push(`${errorMsg}
 Response Body: ${errorBody}`);
-                } catch (bodyError) {
-                    errorMessages.push(`${errorMsg}
+                        } catch (bodyError) {
+                            errorMessages.push(`${errorMsg}
 Could not read response body: ${bodyError.message}`);
+                        }
+                    } else {
+                        errorMessages.push(`Request to ${url} returned error: ${response.status} ${response.statusText}`);
+                    }
                 }
-            } else {
-                errorMessages.push(`Request to ${url} returned error: ${response.status} ${response.statusText}`);
+            } catch (error) {
+                if (attempt === maxRetries) {
+                    errorMessages.push(`Network error for ${url}: ${error.message}`);
+                }
             }
         }
     }
