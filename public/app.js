@@ -5,7 +5,7 @@ function vaultManager() {
         allAssets: [],
         currentPage: 1,
         itemsPerPage: 20,
-        totalPages: 0,
+        totalPages: 1,
         selectedAsset: null,
         categoryFilter: '',
         listingTypeFilter: '',
@@ -14,14 +14,14 @@ function vaultManager() {
         loadedCount: 0,
 
         async init() {
-            
+
             const response = await fetch(`/data/vault.json?t=${Date.now()}`);
             const vaultAssets = await response.json();
 
             // Group by unique identifier (catalogItemId or listingIdentifier)
             const uniqueKeys = new Set();
             const uniqueAssets = [];
-            
+
             vaultAssets.forEach(asset => {
                 const key = asset.catalogItemId || asset.listingIdentifier;
                 if (key && !uniqueKeys.has(key)) {
@@ -29,7 +29,7 @@ function vaultManager() {
                     uniqueAssets.push(asset);
                 }
             });
-            
+
             this.allAssets = uniqueAssets.map(vaultAsset => {
                 const primaryId = vaultAsset.catalogItemId || vaultAsset.listingIdentifier;
                 const listingId = vaultAsset.listingIdentifier || vaultAsset.catalogItemId;
@@ -70,21 +70,22 @@ function vaultManager() {
         async loadAssetDetail(asset) {
             try {
                 let response;
-                
+
                 // Try listingIdentifier first (for assets with or without catalogItemId)
                 if (asset.listingIdentifier) {
                     const listingFile = asset.listingIdentifier.replace(/-/g, '');
                     response = await fetch(`/data/detail/${listingFile}.json`);
                 }
-                
+
                 // If that fails and we have catalogItemId, try catalogItemId
                 if ((!response || !response.ok) && asset.catalogItemId) {
                     response = await fetch(`/data/detail/${asset.catalogItemId}.json`);
                 }
-                
+
                 if (!response || !response.ok) {
                     asset.loaded = true;
                     this.loadedCount++;
+                    this.loadPage();
                     return;
                 }
 
@@ -104,10 +105,10 @@ function vaultManager() {
                 asset.compatibleApps = data.compatibleApps || [];
 
                 asset.thumbnail = data.keyImages?.find(img => img.type === 'Thumbnail')?.url ||
-                                data.keyImages?.find(img => img.type === 'Featured')?.url ||
-                                data.keyImages?.find(img => img.type === 'Screenshot')?.url || '';
+                    data.keyImages?.find(img => img.type === 'Featured')?.url ||
+                    data.keyImages?.find(img => img.type === 'Screenshot')?.url || '';
 
-                asset.platforms = (data.platforms || []).map(p => 
+                asset.platforms = (data.platforms || []).map(p =>
                     typeof p === 'string' ? { key: p.toLowerCase(), value: p } : p
                 );
 
@@ -124,36 +125,40 @@ function vaultManager() {
 
                 asset.loaded = true;
                 this.loadedCount++;
+                this.loadPage();
             } catch (error) {
                 asset.loaded = true;
                 this.loadedCount++;
+                this.loadPage();
             }
         },
 
 
 
         get filteredAssets() {
-            let filtered = this.allAssets.filter(asset => asset.loaded);
+            if (!Array.isArray(this.allAssets)) return [];
             
+            let filtered = this.allAssets.filter(asset => asset && asset.loaded);
+
             if (this.searchQuery) {
                 const query = this.searchQuery.toLowerCase();
-                filtered = filtered.filter(asset => 
-                    asset.title.toLowerCase().includes(query) ||
-                    asset.category.toLowerCase().includes(query) ||
-                    asset.author.toLowerCase().includes(query) ||
-                    asset.description.toLowerCase().includes(query)
+                filtered = filtered.filter(asset =>
+                    (asset.title || '').toLowerCase().includes(query) ||
+                    (asset.category || '').toLowerCase().includes(query) ||
+                    (asset.author || '').toLowerCase().includes(query) ||
+                    (asset.description || '').toLowerCase().includes(query)
                 );
             }
-            
+
             if (this.categoryFilter) {
                 filtered = filtered.filter(asset => asset.category === this.categoryFilter);
             }
-            
+
             if (this.listingTypeFilter) {
                 filtered = filtered.filter(asset => asset.listingType === this.listingTypeFilter);
             }
-            
-            return filtered;
+
+            return filtered || [];
         },
 
         buildFilters() {
@@ -166,7 +171,7 @@ function vaultManager() {
             this.currentPage = 1;
             this.loadPage();
         },
-        
+
         clearFilters() {
             this.searchQuery = '';
             this.categoryFilter = '';
@@ -175,30 +180,42 @@ function vaultManager() {
         },
 
         changePage(direction) {
-            if (direction === 'prev' && this.currentPage > 1) this.currentPage--;
-            else if (direction === 'next' && this.currentPage < this.totalPages) this.currentPage++;
+            const filtered = this.filteredAssets;
+            const maxPages = Math.ceil(filtered.length / this.itemsPerPage) || 1;
+            
+            if (direction === 'prev' && this.currentPage > 1) {
+                this.currentPage--;
+            } else if (direction === 'next' && this.currentPage < maxPages) {
+                this.currentPage++;
+            }
             this.loadPage();
         },
 
         changeItemsPerPage(newItemsPerPage) {
-            this.itemsPerPage = parseInt(newItemsPerPage);
+            this.itemsPerPage = parseInt(newItemsPerPage) || 20;
             this.currentPage = 1;
             this.loadPage();
         },
 
         loadPage() {
-            const filtered = this.filteredAssets;
-            this.totalPages = Math.ceil(filtered.length / this.itemsPerPage);
-            this.currentPage = Math.min(this.currentPage, this.totalPages || 1);
+            const filtered = this.filteredAssets || [];
+            this.totalPages = Math.ceil(filtered.length / this.itemsPerPage) || 1;
             
+            if (this.currentPage > this.totalPages) {
+                this.currentPage = this.totalPages;
+            }
+            if (this.currentPage < 1) {
+                this.currentPage = 1;
+            }
+
             const start = (this.currentPage - 1) * this.itemsPerPage;
             const end = start + this.itemsPerPage;
-            this.assets = filtered.slice(start, end);
+            this.assets = filtered.slice(start, end) || [];
         },
 
         openModal(asset) {
             this.selectedAsset = { ...asset };
-            
+
             if (!this.selectedAsset.releaseInfo.length && asset.appId) {
                 this.selectedAsset.releaseInfo = [{
                     appId: asset.appId,
@@ -206,14 +223,17 @@ function vaultManager() {
                     dateAdded: new Date().toISOString()
                 }];
             }
-            
+
             this.selectedAsset.releaseInfo.forEach(rel => {
                 if (!rel.appId) rel.appId = asset.appId;
                 rel.download = {};
             });
-            
+
             updateSlideshow(this.selectedAsset);
-            UIkit.modal('#modal-full').show();
+            
+            if (typeof UIkit !== 'undefined' && UIkit.modal) {
+                UIkit.modal('#modal-full').show();
+            }
         },
 
         closeModal() {
@@ -231,12 +251,12 @@ function vaultManager() {
 
 }
 
-const formatUUID = function(uuid) {
+const formatUUID = function (uuid) {
     if (!uuid || uuid.length !== 32) return uuid;
     return `${uuid.slice(0, 8)}-${uuid.slice(8, 12)}-${uuid.slice(12, 16)}-${uuid.slice(16, 20)}-${uuid.slice(20)}`;
 }
 
-const getPlatformIconClass = function(platformKey) {
+const getPlatformIconClass = function (platformKey) {
     const key = (platformKey || '').toLowerCase();
     switch (key) {
         case 'windows':
@@ -259,7 +279,7 @@ const getPlatformIconClass = function(platformKey) {
     }
 }
 
-const formatCompatibleApps = function(compatibleApps) {
+const formatCompatibleApps = function (compatibleApps) {
     if (!Array.isArray(compatibleApps) || !compatibleApps.length) return '';
 
     // Convert the version strings into numbers and sort
@@ -293,12 +313,14 @@ const formatCompatibleApps = function(compatibleApps) {
     return chunks.map(chunk => chunk.length === 1 ? chunk[0] : `${chunk[0]}-${chunk[chunk.length - 1]}`).join(', ');
 }
 
-const updateSlideshow = function(selectedAsset) {
+const updateSlideshow = function (selectedAsset) {
     const slideshowContainer = document.querySelector('.uk-slideshow-items');
+    if (!slideshowContainer) return;
+    
     slideshowContainer.innerHTML = '';
 
     const screenshots = selectedAsset.keyImages?.filter(img => img.type === 'Screenshot' && img.url) || [];
-    
+
     screenshots.forEach(image => {
         const li = document.createElement('li');
         const img = document.createElement('img');
@@ -309,7 +331,7 @@ const updateSlideshow = function(selectedAsset) {
         slideshowContainer.appendChild(li);
     });
 
-    if (screenshots.length > 0) {
+    if (screenshots.length > 0 && slideshowContainer.parentElement) {
         UIkit.slideshow(slideshowContainer.parentElement, {
             animation: 'slide',
             autoplay: true
@@ -317,13 +339,13 @@ const updateSlideshow = function(selectedAsset) {
     }
 }
 
-const requestDownloadStatus = function(rel) {
+const requestDownloadStatus = function (rel) {
     fetch(`/data/status/${rel.appId}.json`)
         .then(response => response.json())
         .then(json => {
             rel.download.status = json.status;
             rel.download.progress = json.progress;
-            
+
             if (json.status === "complete" || json.status === "error") {
                 clearInterval(rel.download.intervalId);
             }
@@ -331,13 +353,13 @@ const requestDownloadStatus = function(rel) {
         .catch(error => console.error('Status check failed:', error));
 }
 
-const requestDownloadInfo = function(rel) {
+const requestDownloadInfo = function (rel) {
     fetch(`/api/request/${rel.appId}`)
         .then(response => response.json())
         .then(json => {
             rel.download.status = json.status;
             rel.download.progress = json.progress || 0;
-            
+
             if (json.status === "ok" || (json.status !== "complete" && json.status !== "error")) {
                 rel.download.intervalId = setInterval(() => requestDownloadStatus(rel), 1000);
             }
@@ -348,7 +370,7 @@ const requestDownloadInfo = function(rel) {
         });
 }
 
-const requestDownloadLink = function(appId) {
+const requestDownloadLink = function (appId) {
     fetch(`/api/download/${appId}`)
         .then(response => response.json())
         .then(json => {
