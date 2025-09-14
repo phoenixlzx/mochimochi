@@ -23,28 +23,26 @@ async function detail() {
     const batchSize = 50;
     for (let i = 0; i < uniqueAssets.length; i += batchSize) {
         const batch = uniqueAssets.slice(i, i + batchSize);
-        const catalogItemIds = batch.map(asset => asset.catalogItemId);
         
-        try {
-            const bulkDetails = await getBulkAssetDetails(catalogItemIds);
-            
-            for (const detail of bulkDetails) {
-                const processedDetail = processAssetDetail(detail);
-                await fs.writeFile(`${config.DATA_DIR}/public/detail/${detail.catalogItemId}.json`, JSON.stringify(processedDetail));
-            }
-        } catch (err) {
-            console.error(`Bulk detail request failed, falling back to individual requests: ${err}`);
-            
-            for (const asset of batch) {
-                try {
-                    const assetDetails = await getBulkAssetDetails([asset.catalogItemId]);
-                    if (assetDetails.length > 0) {
-                        const processedDetail = processAssetDetail(assetDetails[0]);
+        for (const asset of batch) {
+            try {
+                const detailId = asset.listingIdentifier || asset.catalogItemId;
+                const assetDetails = await getBulkAssetDetails([detailId]);
+                
+                if (assetDetails.length > 0) {
+                    const processedDetail = processAssetDetail(assetDetails[0], asset);
+                    const filename = asset.listingIdentifier ? 
+                        asset.listingIdentifier.replace(/-/g, '') : 
+                        asset.catalogItemId;
+                    
+                    await fs.writeFile(`${config.DATA_DIR}/public/detail/${filename}.json`, JSON.stringify(processedDetail));
+                    
+                    if (asset.listingIdentifier && asset.listingIdentifier !== asset.catalogItemId) {
                         await fs.writeFile(`${config.DATA_DIR}/public/detail/${asset.catalogItemId}.json`, JSON.stringify(processedDetail));
                     }
-                } catch (individualErr) {
-                    console.error(`Failed to get detail for ${asset.catalogItemId}: ${individualErr}`);
                 }
+            } catch (err) {
+                console.error(`Failed to get detail for ${asset.catalogItemId}: ${err}`);
             }
         }
     }
@@ -104,15 +102,15 @@ async function getBulkAssetDetails(catalogItemIds) {
 
 
 
-function processAssetDetail(detail) {
+function processAssetDetail(detail, vaultAsset) {
     return {
         data: {
-            data: mapEpicToLegacyFormat(detail)
+            data: mapEpicToLegacyFormat(detail, vaultAsset)
         }
     };
 }
 
-function mapEpicToLegacyFormat(detail) {
+function mapEpicToLegacyFormat(detail, vaultAsset) {
     const thumbnail = detail.keyImages && detail.keyImages.length > 0 
         ? detail.keyImages.find(img => img.type === 'DieselGameBoxTall' || img.type === 'DieselGameBox')?.url
         : null;
@@ -122,7 +120,8 @@ function mapEpicToLegacyFormat(detail) {
         : ["5.0"];
 
     return {
-        catalogItemId: detail.catalogItemId,
+        catalogItemId: vaultAsset?.catalogItemId || detail.catalogItemId,
+        listingIdentifier: vaultAsset?.listingIdentifier || detail.catalogItemId,
         title: detail.title,
         description: detail.description,
         longDescription: detail.longDescription || detail.description,

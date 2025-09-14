@@ -77,10 +77,13 @@ async function readVaultItems(url, authData) {
             
             response.results.forEach(item => {
                 if (item.projectVersions && Array.isArray(item.projectVersions)) {
+                    const listingIdentifier = item.customAttributes?.find(attr => attr.ListingIdentifier)?.ListingIdentifier;
+                    
                     item.projectVersions.forEach(version => {
                         if (version.artifactId) {
                             mappedItems.push({
                                 catalogItemId: item.legacyItemId || item.assetId,
+                                listingIdentifier: listingIdentifier,
                                 artifactId: version.artifactId,
                                 appName: version.artifactId,
                                 namespace: item.assetNamespace,

@@ -70,7 +70,8 @@ async function manifest() {
                         console.log(`Downloaded ${savePath}`);
 
                         const simplifiedManifest = {
-                            "catalogItemId": manifestData.catalogItemId,
+                            "catalogItemId": vaultData.catalogItemId,
+                            "listingIdentifier": vaultData.listingIdentifier,
                             "AppNameString": manifestData.AppNameString,
                             "BuildVersionString": manifestData.BuildVersionString
                         };

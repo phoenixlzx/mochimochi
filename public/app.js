@@ -2,190 +2,160 @@ function vaultManager() {
     return {
         searchQuery: '',
         assets: [],
-        allUniqueAssets: [],
+        allAssets: [],
         currentPage: 1,
         itemsPerPage: 20,
         totalPages: 0,
-        selectedAsset: {},
-        showDetails: false,
-        currentPhoto: 0,
-        searchAssetData: {},
+        selectedAsset: null,
         categoryFilter: '',
         listingTypeFilter: '',
         availableCategories: [],
         availableListingTypes: [],
+        loadedCount: 0,
 
         async init() {
-    const response = await fetch(`/data/vault.json?timestamp=${new Date().getTime()}`);
-    let assets = await response.json();
+            window.vaultManagerInstance = this;
+            
+            const response = await fetch(`/data/vault.json?t=${Date.now()}`);
+            const vaultAssets = await response.json();
 
-    // Remove duplicates based on catalogItemId and initialize with vault data
-    this.allUniqueAssets = Array.from(new Set(assets.map(a => a.catalogItemId)))
-        .map(catalogItemId => {
-            let asset = assets.find(a => a.catalogItemId === catalogItemId);
-            // Initialize with vault data
-            asset.loaded = false;
-            asset.thumbnail = asset.thumbnail || '';
-            asset.category = asset.category || '';
-            asset.author = asset.seller || '';
-            asset.platforms = asset.platforms || [];
-            asset.compatibleApps = asset.compatibleApps || [];
-            asset.keyImages = asset.keyImages || [];
-            asset.releaseInfo = asset.releaseInfo || [];
-            // Use artifactId from vault data for downloads
-            asset.appId = asset.artifactId || asset.appName;
-            return asset;
-        });
+            this.allAssets = Array.from(new Set(vaultAssets.map(a => a.catalogItemId)))
+                .map(catalogItemId => {
+                    const vaultAsset = vaultAssets.find(a => a.catalogItemId === catalogItemId);
+                    const listingId = vaultAsset.listingIdentifier || catalogItemId;
+                    return {
+                        catalogItemId,
+                        listingIdentifier: vaultAsset.listingIdentifier,
+                        title: vaultAsset.title || 'Untitled',
+                        appId: vaultAsset.artifactId || vaultAsset.appName,
+                        loaded: false,
+                        thumbnail: '',
+                        category: '',
+                        author: '',
+                        platforms: [],
+                        compatibleApps: [],
+                        keyImages: [],
+                        releaseInfo: [],
+                        url: `https://www.fab.com/listings/${formatUUID(listingId)}`
+                    };
+                });
 
-    this.totalPages = Math.ceil(this.allUniqueAssets.length / this.itemsPerPage);
+            console.log(`Loaded ${this.allAssets.length} unique assets from vault`);
+            await this.loadAssetDetails();
+            this.buildFilters();
+            this.loadPage();
+        },
 
-    // Counter to track the number of loaded assets
-    this.loadedCount = 0;
-
-    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-    // Create an array to hold all the fetch promises
-    const batchSize = 10; // Adjust batch size as needed
-    const delayBetweenBatches = 50; // Delay in milliseconds
-
-    for (let i = 0; i < this.allUniqueAssets.length; i += batchSize) {
-        const batch = this.allUniqueAssets.slice(i, i + batchSize);
-        const batchPromises = batch.map((asset, index) => {
-            if (!asset.loaded) {
-                return fetch(`/data/detail/${asset.catalogItemId}.json`)
-                    .then(async response => {
-                        if (!response.ok) {
-                            throw new Error(`Failed to fetch asset details for ${asset.catalogItemId}`);
-                        }
-
-                        const details = await response.json();
-                        
-                        // Handle nested data structure from detail files
-                        const assetData = details.data?.data || details;
-                        
-                        // Enhance asset with detail data
-                        asset.thumbnail = assetData.keyImages?.find(img => img.type === 'Thumbnail')?.url || 
-                                        assetData.keyImages?.find(img => img.type === 'Featured')?.url || 
-                                        asset.thumbnail;
-                        asset.title = assetData.title || asset.title;
-                        asset.author = assetData.seller?.name || asset.author;
-                        
-                        // Handle category structure
-                        if (assetData.categories && assetData.categories.length > 0) {
-                            asset.category = assetData.categories.map(c => c.name).join(', ');
-                        }
-                        
-                        // Handle platforms - can be array of strings or objects
-                        if (assetData.platforms) {
-                            asset.platforms = assetData.platforms.map(p => 
-                                typeof p === 'string' ? { key: p.toLowerCase(), value: p } : p
-                            );
-                        } else if (!asset.platforms) {
-                            asset.platforms = [];
-                        }
-                        asset.compatibleApps = assetData.compatibleApps || asset.compatibleApps;
-                        asset.url = asset.url || `https://www.fab.com/listings/${formatUUID(asset.catalogItemId)}`;
-                        asset.seller = assetData.seller || asset.seller;
-                        asset.description = assetData.description || asset.description;
-                        asset.technicalDetails = assetData.technicalDetails;
-                        asset.longDescription = assetData.longDescription;
-                        asset.keyImages = assetData.keyImages || asset.keyImages;
-                        asset.licenses = assetData.licenses || [];
-                        asset.listingType = assetData.listingType || asset.listingType;
-                        asset.assetFormats = assetData.assetFormats || [];
-                        
-                        // Create releaseInfo from detail data if available
-                        if (assetData.releaseInfo && assetData.releaseInfo.length > 0) {
-                            asset.releaseInfo = assetData.releaseInfo;
-                        } else if (asset.appId) {
-                            // Create releaseInfo using artifactId from vault data
-                            asset.releaseInfo = [{
-                                appId: asset.appId,
-                                platform: asset.platforms?.map(p => p.value || p).join(', ') || 'Unknown',
-                                dateAdded: new Date().toISOString()
-                            }];
-                        }
-                        asset.loaded = true; // Mark the asset as loaded
-                        this.loadedCount++; // Increment the counter when an asset is loaded
-
-                        // Build search text from available data
-                        const searchText = [
-                            asset.title,
-                            asset.category,
-                            asset.author,
-                            asset.description,
-                            asset.longDescription,
-                            asset.technicalDetails,
-                            asset.listingType,
-                            (asset.licenses?.map(l => l.name).join(' ') || '')
-                        ].filter(Boolean).join(' ').toLowerCase();
-                        
-                        this.searchAssetData[asset.catalogItemId] = searchText;
-                    })
-                    .catch(error => {
-                        console.error(`Error loading asset ${asset.catalogItemId}:`, error);
-                        // Remove the asset from the allUniqueAssets array if there's an error
-                        this.allUniqueAssets = this.allUniqueAssets.filter(a => a.catalogItemId !== asset.catalogItemId);
-                    });
-            }
-        });
-
-        // Wait for all fetch promises in the batch to be settled
-        await Promise.allSettled(batchPromises);
-        // Delay between batches
-        if (i + batchSize < this.allUniqueAssets.length) { // Check to avoid unnecessary delay after the last batch
-            await sleep(delayBetweenBatches);
-        }
-    }
-
-    // Filter assets to only those that are loaded
-    this.assets = this.allUniqueAssets.filter(asset => asset.loaded);
-    this.totalPages = Math.ceil(this.assets.length / this.itemsPerPage);
-    
-    // Build filter options
-    this.availableCategories = [...new Set(this.assets.map(asset => asset.category).filter(Boolean))].sort();
-    this.availableListingTypes = [...new Set(this.assets.map(asset => asset.listingType).filter(Boolean))].sort();
-    
-    this.loadPage();
-},
-
-
-
-        displayAsset(asset) {
-            if (this.assets.length < this.itemsPerPage) {
-                if (!this.searchQuery || this.filteredAssets.includes(asset.catalogItemId)) {
-                    this.assets.push(asset);
-                }
+        async loadAssetDetails() {
+            const batchSize = 10;
+            for (let i = 0; i < this.allAssets.length; i += batchSize) {
+                const batch = this.allAssets.slice(i, i + batchSize);
+                const promises = batch.map(asset => this.loadAssetDetail(asset));
+                await Promise.allSettled(promises);
+                await new Promise(resolve => setTimeout(resolve, 50));
             }
         },
 
+        async loadAssetDetail(asset) {
+            try {
+                let response;
+                let detailFile = asset.catalogItemId;
+                
+                if (asset.listingIdentifier) {
+                    const listingFile = asset.listingIdentifier.replace(/-/g, '');
+                    response = await fetch(`/data/detail/${listingFile}.json`);
+                    if (response.ok) {
+                        detailFile = listingFile;
+                    } else {
+                        response = await fetch(`/data/detail/${asset.catalogItemId}.json`);
+                    }
+                } else {
+                    response = await fetch(`/data/detail/${asset.catalogItemId}.json`);
+                }
+                
+                if (!response.ok) {
+                    asset.loaded = true;
+                    this.loadedCount++;
+                    return;
+                }
+
+                const detail = await response.json();
+                const data = detail.data?.data || detail;
+
+                asset.title = data.title || asset.title;
+                asset.author = data.seller?.name || data.developer || '';
+                asset.category = data.categories?.map(c => c.name || c.path?.split('/').pop()).filter(Boolean).join(', ') || '';
+                asset.description = data.description || '';
+                asset.longDescription = data.longDescription || '';
+                asset.technicalDetails = data.technicalDetails || '';
+                asset.listingType = data.listingType || '';
+                asset.keyImages = data.keyImages || [];
+                asset.licenses = data.licenses || [];
+                asset.assetFormats = data.assetFormats || [];
+                asset.compatibleApps = data.compatibleApps || [];
+
+                asset.thumbnail = data.keyImages?.find(img => img.type === 'Thumbnail')?.url ||
+                                data.keyImages?.find(img => img.type === 'Featured')?.url ||
+                                data.keyImages?.find(img => img.type === 'Screenshot')?.url || '';
+
+                asset.platforms = (data.platforms || []).map(p => 
+                    typeof p === 'string' ? { key: p.toLowerCase(), value: p } : p
+                );
+
+                asset.releaseInfo = data.releaseInfo?.length ? data.releaseInfo : [{
+                    appId: asset.appId,
+                    platform: asset.platforms.map(p => p.value || p).join(', ') || 'Windows',
+                    dateAdded: new Date().toISOString()
+                }];
+
+                if (data.listingIdentifier && !asset.listingIdentifier) {
+                    asset.listingIdentifier = data.listingIdentifier;
+                    asset.url = `https://www.fab.com/listings/${formatUUID(data.listingIdentifier)}`;
+                }
+
+                asset.loaded = true;
+                this.loadedCount++;
+            } catch (error) {
+                console.warn(`Failed to load detail for ${asset.catalogItemId}:`, error.message);
+                asset.loaded = true;
+                this.loadedCount++;
+            }
+        },
+
+
+
         get filteredAssets() {
-            let filtered = this.allUniqueAssets.filter(asset => asset.loaded);
+            let filtered = this.allAssets.filter(asset => asset.loaded);
             
-            // Apply search query
             if (this.searchQuery) {
                 const query = this.searchQuery.toLowerCase();
                 filtered = filtered.filter(asset => 
-                    this.searchAssetData[asset.catalogItemId]?.includes(query)
+                    asset.title.toLowerCase().includes(query) ||
+                    asset.category.toLowerCase().includes(query) ||
+                    asset.author.toLowerCase().includes(query) ||
+                    asset.description.toLowerCase().includes(query)
                 );
             }
             
-            // Apply category filter
             if (this.categoryFilter) {
                 filtered = filtered.filter(asset => asset.category === this.categoryFilter);
             }
             
-            // Apply listing type filter
             if (this.listingTypeFilter) {
                 filtered = filtered.filter(asset => asset.listingType === this.listingTypeFilter);
             }
             
-            return filtered.map(asset => asset.catalogItemId);
+            return filtered;
         },
 
-        async performSearch() {
+        buildFilters() {
+            const loadedAssets = this.allAssets.filter(asset => asset.loaded);
+            this.availableCategories = [...new Set(loadedAssets.map(asset => asset.category).filter(Boolean))].sort();
+            this.availableListingTypes = [...new Set(loadedAssets.map(asset => asset.listingType).filter(Boolean))].sort();
+        },
+
+        performSearch() {
             this.currentPage = 1;
-            this.totalPages = Math.ceil((this.filteredAssets.length || 0) / this.itemsPerPage);
             this.loadPage();
         },
         
@@ -196,71 +166,55 @@ function vaultManager() {
             this.performSearch();
         },
 
-        async changePage(direction) {
+        changePage(direction) {
             if (direction === 'prev' && this.currentPage > 1) this.currentPage--;
             else if (direction === 'next' && this.currentPage < this.totalPages) this.currentPage++;
-
             this.loadPage();
         },
 
-        async changeItemsPerPage(newItemsPerPage) {
-            this.itemsPerPage = newItemsPerPage;
-            const pendingAssets = this.allUniqueAssets.filter(asset => !asset.loaded);
-            const loadedAssets = this.allUniqueAssets.filter(asset => asset.loaded);
-            const displayedAssets = loadedAssets.slice(0, this.itemsPerPage);
-            this.totalPages = Math.ceil((loadedAssets.length + pendingAssets.length) / this.itemsPerPage);
-            this.currentPage = Math.min(this.currentPage, this.totalPages); // Adjust current page if necessary
-            this.assets = displayedAssets;
+        changeItemsPerPage(newItemsPerPage) {
+            this.itemsPerPage = parseInt(newItemsPerPage);
+            this.currentPage = 1;
+            this.loadPage();
         },
 
         loadPage() {
-            let start = (this.currentPage - 1) * this.itemsPerPage;
-            let end = this.currentPage * this.itemsPerPage;
-
-            const filteredCatalogItemIds = this.filteredAssets.slice(start, end);
-            this.assets = this.allUniqueAssets.filter(asset =>
-                filteredCatalogItemIds.includes(asset.catalogItemId)
-            );
+            const filtered = this.filteredAssets;
+            this.totalPages = Math.ceil(filtered.length / this.itemsPerPage);
+            this.currentPage = Math.min(this.currentPage, this.totalPages || 1);
+            
+            const start = (this.currentPage - 1) * this.itemsPerPage;
+            const end = start + this.itemsPerPage;
+            this.assets = filtered.slice(start, end);
         },
 
         openModal(asset) {
-            this.selectedAsset = asset;
-            this.selectedAsset.downloads = {};
-            this.selectedAsset.releaseInfo = this.selectedAsset.releaseInfo || [];
+            this.selectedAsset = { ...asset };
             
-            // If no releaseInfo exists, create one using the artifactId
-            if (this.selectedAsset.releaseInfo.length === 0 && asset.appId) {
+            if (!this.selectedAsset.releaseInfo.length && asset.appId) {
                 this.selectedAsset.releaseInfo = [{
                     appId: asset.appId,
-                    platform: asset.platforms?.map(p => p.value || p).join(', ') || 'Unknown',
+                    platform: asset.platforms.map(p => p.value || p).join(', ') || 'Unknown',
                     dateAdded: new Date().toISOString()
                 }];
             }
             
-            // Ensure all releaseInfo entries have the correct appId
-            for (let rel of this.selectedAsset.releaseInfo) {
-                if (!rel.appId && asset.appId) {
-                    rel.appId = asset.appId;
-                }
-            }
+            this.selectedAsset.releaseInfo.forEach(rel => {
+                if (!rel.appId) rel.appId = asset.appId;
+                rel.download = {};
+            });
             
             updateSlideshow(this.selectedAsset);
-
-            for (let rel of this.selectedAsset.releaseInfo) {
-                rel.download = {};
-            }
             UIkit.modal('#modal-full').show();
         },
 
         closeModal() {
-            if (this.selectedAsset && this.selectedAsset.releaseInfo) {
-                for (let rel of this.selectedAsset.releaseInfo) {
-                    try {
+            if (this.selectedAsset?.releaseInfo) {
+                this.selectedAsset.releaseInfo.forEach(rel => {
+                    if (rel.download?.intervalId) {
                         clearInterval(rel.download.intervalId);
-                    } catch (err) {
-                        console.error(err);
                     }
-                }
+                });
             }
             this.selectedAsset = null;
         },
@@ -333,65 +287,57 @@ const formatCompatibleApps = function(compatibleApps) {
 
 const updateSlideshow = function(selectedAsset) {
     const slideshowContainer = document.querySelector('.uk-slideshow-items');
-    slideshowContainer.innerHTML = ''; // Clear existing items
+    slideshowContainer.innerHTML = '';
 
-    if (selectedAsset && selectedAsset.keyImages) {
-        selectedAsset.keyImages.filter(i => i.type === 'Screenshot' && i.url).forEach(image => {
-            const li = document.createElement('li');
-            const img = document.createElement('img');
-            img.src = image.url;
-            img.alt = ""; // Set an appropriate alt text
-            img.setAttribute('uk-cover', '');
-            li.appendChild(img);
-            slideshowContainer.appendChild(li);
+    const screenshots = selectedAsset.keyImages?.filter(img => img.type === 'Screenshot' && img.url) || [];
+    
+    screenshots.forEach(image => {
+        const li = document.createElement('li');
+        const img = document.createElement('img');
+        img.src = image.url;
+        img.alt = selectedAsset.title || '';
+        img.setAttribute('uk-cover', '');
+        li.appendChild(img);
+        slideshowContainer.appendChild(li);
+    });
+
+    if (screenshots.length > 0) {
+        UIkit.slideshow(slideshowContainer.parentElement, {
+            animation: 'slide',
+            autoplay: true
         });
     }
-
-    UIkit.slideshow(slideshowContainer.parentElement, {
-        animation: 'slide',
-        autoplay: true
-    });
 }
 
 const requestDownloadStatus = function(rel) {
     fetch(`/data/status/${rel.appId}.json`)
         .then(response => response.json())
         .then(json => {
+            rel.download.status = json.status;
+            rel.download.progress = json.progress;
+            
             if (json.status === "complete" || json.status === "error") {
-                rel.download.status = json.status;
                 clearInterval(rel.download.intervalId);
-            } else {
-                rel.download.status = json.status;
-                rel.download.progress = json.progress;
             }
         })
-        .catch(error => {
-            console.error(error);
-        });
+        .catch(error => console.error('Status check failed:', error));
 }
 
 const requestDownloadInfo = function(rel) {
     fetch(`/api/request/${rel.appId}`)
         .then(response => response.json())
         .then(json => {
-            if (json.status === "ok") {
+            rel.download.status = json.status;
+            rel.download.progress = json.progress || 0;
+            
+            if (json.status === "ok" || (json.status !== "complete" && json.status !== "error")) {
                 rel.download.intervalId = setInterval(() => requestDownloadStatus(rel), 1000);
-            } else if (json.status === "complete") {
-                rel.download.status = "complete";
-            } else if (json.status === "error") {
-                rel.download.status = "error";
-                if (rel.download.intervalId) {
-                    clearInterval(rel.download.intervalId);
-                }
-            } else {
-                rel.download.status = json.status;
-                rel.download.progress = json.progress;
-                if (!rel.download.IntervalId) {
-                    rel.download.intervalId = setInterval(() => requestDownloadStatus(rel), 1000);
-                }
             }
         })
-        .catch(error => console.error(error));
+        .catch(error => {
+            console.error('Download request failed:', error);
+            rel.download.status = "error";
+        });
 }
 
 const requestDownloadLink = function(appId) {
@@ -402,7 +348,7 @@ const requestDownloadLink = function(appId) {
                 window.location.href = json.url;
             }
         })
-        .catch(error => console.error(error));
+        .catch(error => console.error('Download link failed:', error));
 }
 
 const dateOptions = {
@@ -413,3 +359,51 @@ const dateOptions = {
     hour: '2-digit',
     minute: '2-digit'
 }
+
+// Debug function to help identify UUID mismatches
+window.debugAssetUUIDs = function() {
+    const manager = Alpine.store('vaultManager') || window.vaultManagerInstance;
+    if (!manager) {
+        console.log('Vault manager not found');
+        return;
+    }
+    
+    console.log('=== Asset UUID Debug Info ===');
+    console.log(`Total assets: ${manager.allAssets.length}`);
+    console.log(`Loaded assets: ${manager.allAssets.filter(a => a.loaded).length}`);
+    
+    // Show first 10 assets with their UUIDs and load status
+    manager.allAssets.slice(0, 10).forEach(asset => {
+        console.log(`CatalogId: ${asset.catalogItemId} | ListingId: ${asset.listingIdentifier || 'None'} | ${asset.title} | Loaded: ${asset.loaded}`);
+    });
+    
+    // Check for specific UUID if provided
+    const targetUUID = '9d8857a34a7a46e3b11a61268dc0d1f4';
+    const asset = manager.allAssets.find(a => a.catalogItemId === targetUUID);
+    if (asset) {
+        console.log('=== Target Asset Details ===');
+        console.log(`Catalog ID: ${asset.catalogItemId}`);
+        console.log(`Listing ID: ${asset.listingIdentifier || 'None'}`);
+        console.log(`Title: ${asset.title}`);
+        console.log(`URL: ${asset.url}`);
+        console.log(`Loaded: ${asset.loaded}`);
+        console.log(`App ID: ${asset.appId}`);
+        if (asset.loaded) {
+            console.log(`Thumbnail: ${asset.thumbnail}`);
+            console.log(`Category: ${asset.category}`);
+            console.log(`Author: ${asset.author}`);
+        }
+    } else {
+        console.log(`Asset with UUID ${targetUUID} not found in vault`);
+    }
+    
+    // Check for assets with ListingIdentifier
+    const assetsWithListing = manager.allAssets.filter(a => a.listingIdentifier);
+    console.log(`=== Assets with ListingIdentifier: ${assetsWithListing.length} ===`);
+    assetsWithListing.slice(0, 5).forEach(asset => {
+        console.log(`${asset.catalogItemId} -> ${asset.listingIdentifier}`);
+    });
+};
+
+// Make vault manager globally accessible for debugging
+window.vaultManagerInstance = null;

@@ -1,283 +1,311 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Asset Vault</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/css/uikit.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha512-SfTiTlX6kk+qitfevl/7LibUOeJWlt9rbyDn92a1DqWOw9vWG2MFoays0sgObmWazO5BQPiFucnnEAjpAB+/Sw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <style>
-      .asset-card {
-        display: none;
-      }
-      .asset-loaded .asset-card {
-        display: block;
-      }
-      template {
-        display: none !important;
-      }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/js/uikit.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/js/uikit-icons.min.js"></script>
-  </head>
-  <body>
-    <div x-data="vaultManager()" x-init="init()">
-      <nav class="uk-navbar-container" uk-navbar>
-        <div class="uk-navbar-left">
-          <a class="uk-navbar-item uk-logo">
-            <h1 class="uk-heading-bullet uk-heading-small">Asset Vault</h1>
-          </a>
+
+<head>
+  <title>Asset Vault</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/css/uikit.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+    integrity="sha512-SfTiTlX6kk+qitfevl/7LibUOeJWlt9rbyDn92a1DqWOw9vWG2MFoays0sgObmWazO5BQPiFucnnEAjpAB+/Sw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    template {
+      display: none !important;
+    }
+
+    .uk-card img {
+      object-fit: cover;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/js/uikit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/js/uikit-icons.min.js"></script>
+</head>
+
+<body>
+  <div x-data="vaultManager()" x-init="init()">
+    <nav class="uk-navbar-container" uk-navbar>
+      <div class="uk-navbar-left">
+        <a class="uk-navbar-item uk-logo">
+          <h1 class="uk-heading-bullet uk-heading-small">Asset Vault</h1>
+        </a>
+      </div>
+      <div class="uk-navbar-right">
+        <div class="uk-navbar-item">
+          <form class="uk-search uk-search-navbar">
+            <span uk-search-icon></span>
+            <input class="uk-search-input" type="search" x-model="searchQuery" x-model.debounce="searchQuery"
+              placeholder="Search..." @input="performSearch" />
+          </form>
         </div>
-        <div class="uk-navbar-right">
-          <div class="uk-navbar-item">
-            <form class="uk-search uk-search-navbar">
-              <span uk-search-icon></span>
-              <input class="uk-search-input" type="search" x-model="searchQuery" x-model.debounce="searchQuery" placeholder="Search..." @input="performSearch" />
-            </form>
-          </div>
+      </div>
+    </nav>
+    <div class="uk-container uk-container-expand">
+      <div class="uk-margin uk-grid-small" uk-grid>
+        <div class="uk-width-auto">
+          <select x-model="categoryFilter" @change="performSearch" class="uk-select uk-form-small">
+            <option value="">All Categories</option>
+            <template x-for="category in availableCategories" :key="category">
+              <option :value="category" x-text="category"></option>
+            </template>
+          </select>
         </div>
-      </nav>
-      <div class="uk-container uk-container-expand">
-        <div class="uk-margin uk-grid-small" uk-grid>
-          <div class="uk-width-auto">
-            <select x-model="categoryFilter" @change="performSearch" class="uk-select uk-form-small">
-              <option value="">All Categories</option>
-              <template x-for="category in availableCategories" :key="category">
-                <option :value="category" x-text="category"></option>
-              </template>
-            </select>
-          </div>
-          <div class="uk-width-auto">
-            <select x-model="listingTypeFilter" @change="performSearch" class="uk-select uk-form-small">
-              <option value="">All Types</option>
-              <template x-for="type in availableListingTypes" :key="type">
-                <option :value="type" x-text="type"></option>
-              </template>
-            </select>
-          </div>
-          <div class="uk-width-auto">
-            <button @click="clearFilters" class="uk-button uk-button-default uk-button-small">Clear Filters</button>
-          </div>
+        <div class="uk-width-auto">
+          <select x-model="listingTypeFilter" @change="performSearch" class="uk-select uk-form-small">
+            <option value="">All Types</option>
+            <template x-for="type in availableListingTypes" :key="type">
+              <option :value="type" x-text="type"></option>
+            </template>
+          </select>
         </div>
-        
-        <div class="uk-grid-small uk-grid-match uk-child-width-1-1@s uk-child-width-1-3@m uk-child-width-1-5@l" uk-grid>
-          <template x-for="asset in assets" :key="asset.catalogItemId">
-            <template x-if="asset.loaded">
-              <div class="uk-card uk-grid-collapse uk-margin uk-width-large uk-height-small" uk-grid>
-                <div class="uk-width-1-3">
-                  <div class="uk-card-media-left uk-cover-container">
-                    <img :src="asset.thumbnail" uk-cover />
-                    <canvas height="155" width="155"></canvas>
-                  </div>
+        <div class="uk-width-auto">
+          <button @click="clearFilters" class="uk-button uk-button-default uk-button-small">Clear Filters</button>
+        </div>
+      </div>
+
+      <div class="uk-grid-small uk-grid-match uk-child-width-1-1@s uk-child-width-1-3@m uk-child-width-1-5@l" uk-grid>
+        <template x-for="asset in assets" :key="asset.catalogItemId">
+          <div class="uk-card uk-grid-collapse uk-margin uk-width-large uk-height-small" uk-grid>
+            <div class="uk-width-1-3">
+              <div class="uk-card-media-left uk-cover-container">
+                <img :src="asset.thumbnail || '/placeholder.png'" :alt="asset.title" uk-cover />
+                <canvas height="155" width="155"></canvas>
+              </div>
+            </div>
+            <div class="uk-width-2-3">
+              <div class="uk-card-body uk-text-left uk-padding-small uk-padding-remove-top">
+                <div class="uk-text-truncate">
+                  <a href="#" class="uk-button uk-button-text uk-text-bold" x-text="asset.title"
+                    :uk-tooltip="asset.title" @click="openModal(asset)"></a>
                 </div>
-                <div class="uk-width-2-3">
-                  <div class="uk-card-body uk-text-left uk-padding-small uk-padding-remove-top">
-                    <div class="uk-text-truncate">
-                      <a href="#" class="uk-button uk-button-text uk-text-bold" x-text="asset.title" :uk-tooltip="asset.title" @click="openModal(asset)"></a>
-                    </div>
-                    <div class="uk-child-width-expand@s" uk-grid>
-                      <ul class="uk-list uk-list-collapse">
-                        <li class="uk-text-truncate">
-                          <span class="uk-text-muted" x-text="asset.category"></span>
-                        </li>
-                        <li class="uk-text-truncate">
-                          <span x-text="formatCompatibleApps(asset.compatibleApps)"></span>
-                        </li>
-                        <li class="uk-text-truncate">
-                          <template x-for="platform in asset.platforms" :key="platform.key || platform">
-                            <span class="uk-text-truncate">
-                              <i :class="getPlatformIconClass(platform.key || platform)" :title="platform.value || platform"></i>
-                            </span>
-                          </template>
-                        </li>
-                      </ul>
-                    </div>
-                    <div>
-                      <a :href="asset.url" @click.stop class="uk-button uk-button-text" target="_blank">Fab</a>
-                      <template x-if="asset.licenses && asset.licenses.length > 0">
-                        <span class="uk-text-small uk-text-muted" x-text="asset.licenses[0].priceTier?.price || 'Free'"></span>
+                <div class="uk-child-width-expand@s" uk-grid>
+                  <ul class="uk-list uk-list-collapse">
+                    <li class="uk-text-truncate">
+                      <span class="uk-text-muted" x-text="asset.category || 'Uncategorized'"></span>
+                    </li>
+                    <li class="uk-text-truncate">
+                      <span x-text="formatCompatibleApps(asset.compatibleApps)"></span>
+                    </li>
+                    <li class="uk-text-truncate">
+                      <template x-for="platform in asset.platforms" :key="platform.key || platform">
+                        <span class="uk-margin-small-right">
+                          <i :class="getPlatformIconClass(platform.key || platform)"
+                            :title="platform.value || platform"></i>
+                        </span>
                       </template>
-                    </div>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <a :href="asset.url" @click.stop class="uk-button uk-button-text" target="_blank">Fab</a>
+                  <template x-if="asset.licenses && asset.licenses.length > 0">
+                    <span class="uk-text-small uk-text-muted"
+                      x-text="asset.licenses[0].priceTier?.price || 'Free'"></span>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div id="modal-full" class="uk-modal-full uk-margin-remove" uk-modal>
+        <div class="uk-modal-dialog uk-section">
+          <div x-show="selectedAsset" x-cloak>
+            <button class="uk-modal-close-full uk-close-large" type="button" uk-close @click="closeModal()"></button>
+            <div class="uk-grid-collapse" uk-grid>
+              <div class="uk-width-3-5 uk-padding uk-padding-remove-top">
+                <div uk-slideshow="animation: slide; autoplay: true;">
+                  <div class="uk-position-relative uk-visible-toggle uk-light" tabindex="0">
+                    <ul class="uk-slideshow-items">
+                    </ul>
+                    <a class="uk-position-center-left uk-position-small uk-hidden-hover" href="#" uk-slidenav-previous
+                      uk-slideshow-item="previous"></a>
+                    <a class="uk-position-center-right uk-position-small uk-hidden-hover" href="#" uk-slidenav-next
+                      uk-slideshow-item="next"></a>
+                  </div>
+                  <ul class="uk-slideshow-nav uk-dotnav uk-flex-center uk-margin"></ul>
+                </div>
+                <div class="uk-grid-divider" uk-grid>
+                  <div class="uk-width-1-1@s uk-width-1-3@m">
+                    <dl class="uk-description-list">
+                      <dt>Supported Engine Versions</dt>
+                      <dd x-text="formatCompatibleApps(selectedAsset.compatibleApps)"></dd>
+                      <dt>Supported Platforms</dt>
+                      <dd>
+                        <ul class="uk-list uk-list-collapse">
+                          <template x-for="platform in selectedAsset.platforms" :key="platform.key || platform">
+                            <li>
+                              <span x-text="platform.value || platform"></span>
+                            </li>
+                          </template>
+                        </ul>
+                      </dd>
+                    </dl>
+                  </div>
+                  <div class="uk-width-1-1@s uk-width-2-3@m">
+                    <ul class="uk-list uk-list-divider">
+                      <template
+                        x-for="(release, index) in selectedAsset.releaseInfo.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded))"
+                        :key="release.appId">
+                        <li>
+                          <div class="uk-comment">
+                            <header class="uk-comment-header">
+                              <div class="uk-grid-medium uk-flex-middle" uk-grid>
+                                <div class="uk-width-expand">
+                                  <h4 class="uk-comment-title uk-margin-remove">
+                                    <span x-text="release.appId"></span>
+                                  </h4>
+                                </div>
+                              </div>
+                            </header>
+                            <div class="uk-comment-body">
+                              <ul class="uk-comment-meta uk-subnav uk-subnav-divider uk-margin-remove-top">
+                                <li>
+                                  <span
+                                    x-text="new Date(release.dateAdded).toLocaleString(undefined, dateOptions)"></span>
+                                </li>
+                                <li>
+                                  <template x-if="release.download.status === 'complete'">
+                                    <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
+                                      <div>
+                                        <a href="#" @click.prevent="requestDownloadLink(release.appId)"
+                                          class="uk-button uk-button-text">Download</a>
+                                      </div>
+                                      <div class=""></div>
+                                    </div>
+                                  </template>
+                                  <template
+                                    x-if="release.download.status && release.download.status !== 'complete' && release.download.status !== 'error'">
+                                    <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
+                                      <div>
+                                        <progress class="uk-progress uk-margin-remove"
+                                          :value="release.download.progress" max="1"></progress>
+                                      </div>
+                                      <div class="">
+                                        <span x-text="release.download.status"></span>
+                                      </div>
+                                    </div>
+                                  </template>
+                                  <template x-if="release.download.status === 'error'">
+                                    <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
+                                      <div>
+                                        <a href="#" class="uk-button uk-button-text" disabled>Error</a>
+                                      </div>
+                                      <div>
+                                        <a href="#" @click.prevent="requestDownloadInfo(release)"
+                                          class="uk-button uk-button-text">Retry?</a>
+                                      </div>
+                                    </div>
+                                  </template>
+                                  <template x-if="!release.download.status">
+                                    <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
+                                      <div>
+                                        <a href="#" @click.prevent="requestDownloadInfo(release)"
+                                          class="uk-button uk-button-text">Request</a>
+                                      </div>
+                                    </div>
+                                    <div class=""></div>
+                                  </template>
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                        </li>
+                      </template>
+                    </ul>
                   </div>
                 </div>
               </div>
-            </template>
-          </template>
-        </div>  
-      
-        <div id="modal-full" class="uk-modal-full uk-margin-remove" uk-modal>
-          <div class="uk-modal-dialog uk-section">
-            <div x-show="selectedAsset" x-cloak>
-              <button class="uk-modal-close-full uk-close-large" type="button" uk-close @click="closeModal()"></button>
-              <div class="uk-grid-collapse" uk-grid>
-                <div class="uk-width-3-5 uk-padding uk-padding-remove-top">
-                  <div uk-slideshow="animation: slide; autoplay: true;">
-                    <div class="uk-position-relative uk-visible-toggle uk-light" tabindex="0">
-                      <ul class="uk-slideshow-items">
-                      </ul>
-                      <a class="uk-position-center-left uk-position-small uk-hidden-hover" href="#" uk-slidenav-previous uk-slideshow-item="previous"></a>
-                      <a class="uk-position-center-right uk-position-small uk-hidden-hover" href="#" uk-slidenav-next uk-slideshow-item="next"></a>
-                    </div>
-                    <ul class="uk-slideshow-nav uk-dotnav uk-flex-center uk-margin"></ul>
-                  </div>
-                  <div class="uk-grid-divider" uk-grid>
-                    <div class="uk-width-1-1@s uk-width-1-3@m">
-                      <dl class="uk-description-list">
-                        <dt>Supported Engine Versions</dt>
-                        <dd x-text="formatCompatibleApps(selectedAsset.compatibleApps)"></dd>
-                        <dt>Supported Platforms</dt>
-                        <dd>
-                          <ul class="uk-list uk-list-collapse">
-                            <template x-for="platform in selectedAsset.platforms" :key="platform.key || platform">
-                              <li>
-                                <span x-text="platform.value || platform"></span>
-                              </li>
-                            </template>
-                          </ul>
-                        </dd>
-                      </dl>
-                    </div>
-                    <div class="uk-width-1-1@s uk-width-2-3@m">
+              <div class="uk-width-2-5 uk-padding uk-padding-remove-top uk-padding-remove-left">
+                <div class="">
+                  <h1 class="uk-heading-small uk-heading-divider" x-text="selectedAsset.title"></h1>
+                  <ul class="uk-breadcrumb">
+                    <li class="uk-disabled">
+                      <span x-text="selectedAsset.category"></span>
+                    </li>
+                    <li class="uk-disabled">
+                      <span x-text="selectedAsset.author"></span>
+                    </li>
+                    <template x-if="selectedAsset.listingType">
+                      <li class="uk-disabled">
+                        <span x-text="selectedAsset.listingType"></span>
+                      </li>
+                    </template>
+                  </ul>
+
+                  <template x-if="selectedAsset.licenses && selectedAsset.licenses.length > 0">
+                    <div class="uk-margin">
+                      <h4>Licensing</h4>
                       <ul class="uk-list uk-list-divider">
-                        <template x-for="(release, index) in selectedAsset.releaseInfo.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded))" :key="release.appId">
+                        <template x-for="license in selectedAsset.licenses" :key="license.uid">
                           <li>
-                            <div class="uk-comment">
-                              <header class="uk-comment-header">
-                                <div class="uk-grid-medium uk-flex-middle" uk-grid>
-                                  <div class="uk-width-expand">
-                                    <h4 class="uk-comment-title uk-margin-remove">
-                                      <span x-text="release.appId"></span>
-                                    </h4>
-                                  </div>
-                                </div>
-                              </header>
-                              <div class="uk-comment-body">
-                                <ul class="uk-comment-meta uk-subnav uk-subnav-divider uk-margin-remove-top">
-                                  <li>
-                                    <span x-text="new Date(release.dateAdded).toLocaleString(undefined, dateOptions)"></span>
-                                  </li>
-                                  <li>
-                                    <template x-if="release.download.status === 'complete'">
-                                      <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
-                                        <div>
-                                          <a href="#" @click.prevent="requestDownloadLink(release.appId)" class="uk-button uk-button-text">Download</a>
-                                        </div>
-                                        <div class=""></div>
-                                      </div>
-                                    </template>
-                                    <template x-if="release.download.status && release.download.status !== 'complete' && release.download.status !== 'error'">
-                                      <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
-                                        <div>
-                                          <progress class="uk-progress uk-margin-remove" :value="release.download.progress" max="1"></progress>
-                                        </div>
-                                        <div class="">
-                                          <span x-text="release.download.status"></span>
-                                        </div>
-                                      </div>
-                                    </template>
-                                    <template x-if="release.download.status === 'error'">
-                                      <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
-                                        <div>
-                                          <a href="#" class="uk-button uk-button-text" disabled>Error</a>
-                                        </div>
-                                        <div>
-                                          <a href="#" @click.prevent="requestDownloadInfo(release)" class="uk-button uk-button-text">Retry?</a>
-                                        </div>
-                                      </div>
-                                    </template>
-                                    <template x-if="!release.download.status">
-                                      <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
-                                        <div>
-                                          <a href="#" @click.prevent="requestDownloadInfo(release)" class="uk-button uk-button-text">Request</a>
-                                        </div>
-                                      </div>
-                                      <div class=""></div>
-                                    </template>
-                                  </li>
-                                </ul>
+                            <div class="uk-grid-small" uk-grid>
+                              <div class="uk-width-expand">
+                                <span class="uk-text-bold" x-text="license.name"></span>
+                              </div>
+                              <div class="uk-width-auto">
+                                <span
+                                  x-text="license.priceTier ? license.priceTier.price + ' ' + license.priceTier.currencyCode : 'Free'"></span>
                               </div>
                             </div>
                           </li>
                         </template>
                       </ul>
                     </div>
-                  </div>
-                </div>
-                <div class="uk-width-2-5 uk-padding uk-padding-remove-top uk-padding-remove-left">
-                  <div class="">
-                    <h1 class="uk-heading-small uk-heading-divider" x-text="selectedAsset.title"></h1>
-                    <ul class="uk-breadcrumb">
-                      <li class="uk-disabled">
-                        <span x-text="selectedAsset.category"></span>
-                      </li>
-                      <li class="uk-disabled">
-                        <span x-text="selectedAsset.author"></span>
-                      </li>
-                      <template x-if="selectedAsset.listingType">
-                        <li class="uk-disabled">
-                          <span x-text="selectedAsset.listingType"></span>
-                        </li>
-                      </template>
-                    </ul>
-                    
-                    <template x-if="selectedAsset.licenses && selectedAsset.licenses.length > 0">
-                      <div class="uk-margin">
-                        <h4>Licensing</h4>
-                        <ul class="uk-list uk-list-divider">
-                          <template x-for="license in selectedAsset.licenses" :key="license.uid">
-                            <li>
-                              <div class="uk-grid-small" uk-grid>
-                                <div class="uk-width-expand">
-                                  <span class="uk-text-bold" x-text="license.name"></span>
-                                </div>
-                                <div class="uk-width-auto">
-                                  <span x-text="license.priceTier ? license.priceTier.price + ' ' + license.priceTier.currencyCode : 'Free'"></span>
-                                </div>
-                              </div>
-                            </li>
-                          </template>
-                        </ul>
-                      </div>
-                    </template>
-                    
-                    <template x-if="selectedAsset.assetFormats && selectedAsset.assetFormats.length > 0">
-                      <div class="uk-margin">
-                        <h4>Asset Formats</h4>
-                        <ul class="uk-list">
-                          <template x-for="format in selectedAsset.assetFormats" :key="format.assetFormatType?.code">
-                            <li>
-                              <span x-text="format.assetFormatType?.name"></span>
-                              <template x-if="format.assetFormatType?.extensions">
-                                <span class="uk-text-muted" x-text="'(' + format.assetFormatType.extensions.join(', ') + ')'"></span>
-                              </template>
-                            </li>
-                          </template>
-                        </ul>
-                      </div>
-                    </template>
-                    
-                    <p x-text="selectedAsset.description"></p>
-                    <div x-html="selectedAsset.longDescription"></div>
-                    <div x-html="selectedAsset.technicalDetails"></div>
-                  </div>
+                  </template>
+
+                  <template x-if="selectedAsset.assetFormats && selectedAsset.assetFormats.length > 0">
+                    <div class="uk-margin">
+                      <h4>Asset Formats</h4>
+                      <ul class="uk-list">
+                        <template x-for="format in selectedAsset.assetFormats" :key="format.assetFormatType?.code">
+                          <li>
+                            <span x-text="format.assetFormatType?.name"></span>
+                            <template x-if="format.assetFormatType?.extensions">
+                              <span class="uk-text-muted"
+                                x-text="'(' + format.assetFormatType.extensions.join(', ') + ')'"></span>
+                            </template>
+                          </li>
+                        </template>
+                      </ul>
+                    </div>
+                  </template>
+
+                  <p x-text="selectedAsset.description"></p>
+                  <div x-html="selectedAsset.longDescription"></div>
+                  <div x-html="selectedAsset.technicalDetails"></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        
-        <div class="uk-margin-top uk-margin-bottom">
+      </div>
+
+      <div class="uk-margin-top uk-margin-bottom uk-flex uk-flex-between uk-flex-middle">
+        <div>
           <select @change="changeItemsPerPage($event.target.value)" class="uk-select uk-form-small uk-width-small">
             <option value="20">20 items/page</option>
             <option value="50">50 items/page</option>
             <option value="100">100 items/page</option>
           </select>
-          <a href="#" @click="changePage('prev')" :disabled="currentPage === 1" class="uk-button uk-button-default uk-margin-small-left" x-show="currentPage !== 1">Prev</a>
-          <a href="#" @click="changePage('next')" :disabled="currentPage === totalPages" class="uk-button uk-button-default uk-margin-small-left" x-show="currentPage !== totalPages">Next</a>
-          <span class="uk-text-muted uk-margin-small-right">
-            <span x-text="loadedCount"></span> Loaded </span>
+          <span class="uk-text-muted uk-margin-small-left">
+            <span x-text="loadedCount"></span> assets loaded
+          </span>
+        </div>
+        <div>
+          <button @click="changePage('prev')" :disabled="currentPage === 1"
+            class="uk-button uk-button-default uk-button-small"
+            :class="{ 'uk-disabled': currentPage === 1 }">Prev</button>
+          <span class="uk-margin-small-left uk-margin-small-right"
+            x-text="`Page ${currentPage} of ${totalPages}`"></span>
+          <button @click="changePage('next')" :disabled="currentPage === totalPages"
+            class="uk-button uk-button-default uk-button-small"
+            :class="{ 'uk-disabled': currentPage === totalPages }">Next</button>
         </div>
       </div>
     </div>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="app.js"></script>
-  </body>
+  </div>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="app.js"></script>
+</body>
+
 </html>
