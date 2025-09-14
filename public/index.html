@@ -5,16 +5,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/css/uikit.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha512-SfTiTlX6kk+qitfevl/7LibUOeJWlt9rbyDn92a1DqWOw9vWG2MFoays0sgObmWazO5BQPiFucnnEAjpAB+/Sw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
-      /* Initially hide all asset cards */
       .asset-card {
         display: none;
       }
-
-      /* Show only when asset is loaded */
       .asset-loaded .asset-card {
         display: block;
       }
-
       template {
         display: none !important;
       }
@@ -24,7 +20,6 @@
   </head>
   <body>
     <div x-data="vaultManager()" x-init="init()">
-      <!-- heading -->
       <nav class="uk-navbar-container" uk-navbar>
         <div class="uk-navbar-left">
           <a class="uk-navbar-item uk-logo">
@@ -41,7 +36,28 @@
         </div>
       </nav>
       <div class="uk-container uk-container-expand">
-        <!-- Asset List -->
+        <div class="uk-margin uk-grid-small" uk-grid>
+          <div class="uk-width-auto">
+            <select x-model="categoryFilter" @change="performSearch" class="uk-select uk-form-small">
+              <option value="">All Categories</option>
+              <template x-for="category in availableCategories" :key="category">
+                <option :value="category" x-text="category"></option>
+              </template>
+            </select>
+          </div>
+          <div class="uk-width-auto">
+            <select x-model="listingTypeFilter" @change="performSearch" class="uk-select uk-form-small">
+              <option value="">All Types</option>
+              <template x-for="type in availableListingTypes" :key="type">
+                <option :value="type" x-text="type"></option>
+              </template>
+            </select>
+          </div>
+          <div class="uk-width-auto">
+            <button @click="clearFilters" class="uk-button uk-button-default uk-button-small">Clear Filters</button>
+          </div>
+        </div>
+        
         <div class="uk-grid-small uk-grid-match uk-child-width-1-1@s uk-child-width-1-3@m uk-child-width-1-5@l" uk-grid>
           <template x-for="asset in assets" :key="asset.catalogItemId">
             <template x-if="asset.loaded">
@@ -66,24 +82,27 @@
                           <span x-text="formatCompatibleApps(asset.compatibleApps)"></span>
                         </li>
                         <li class="uk-text-truncate">
-                          <template x-for="platform in asset.platforms" :key="platform.key">
+                          <template x-for="platform in asset.platforms" :key="platform.key || platform">
                             <span class="uk-text-truncate">
-                              <i :class="getPlatformIconClass(platform.key)" :title="platform.value"></i>
+                              <i :class="getPlatformIconClass(platform.key || platform)" :title="platform.value || platform"></i>
                             </span>
                           </template>
                         </li>
                       </ul>
                     </div>
                     <div>
-                      <a :href="asset.url" @click.stop class="uk-button uk-button-text" target="_blank">Marketplace</a>
+                      <a :href="asset.url" @click.stop class="uk-button uk-button-text" target="_blank">Fab</a>
+                      <template x-if="asset.licenses && asset.licenses.length > 0">
+                        <span class="uk-text-small uk-text-muted" x-text="asset.licenses[0].priceTier?.price || 'Free'"></span>
+                      </template>
                     </div>
                   </div>
                 </div>
               </div>
             </template>
           </template>
-        </div>
-        <!-- Full-page details section -->
+        </div>  
+      
         <div id="modal-full" class="uk-modal-full uk-margin-remove" uk-modal>
           <div class="uk-modal-dialog uk-section">
             <div x-show="selectedAsset" x-cloak>
@@ -93,7 +112,6 @@
                   <div uk-slideshow="animation: slide; autoplay: true;">
                     <div class="uk-position-relative uk-visible-toggle uk-light" tabindex="0">
                       <ul class="uk-slideshow-items">
-                        <!-- Images will be dynamically added here -->
                       </ul>
                       <a class="uk-position-center-left uk-position-small uk-hidden-hover" href="#" uk-slidenav-previous uk-slideshow-item="previous"></a>
                       <a class="uk-position-center-right uk-position-small uk-hidden-hover" href="#" uk-slidenav-next uk-slideshow-item="next"></a>
@@ -108,9 +126,9 @@
                         <dt>Supported Platforms</dt>
                         <dd>
                           <ul class="uk-list uk-list-collapse">
-                            <template x-for="platform in selectedAsset.platforms" :key="platform.key">
+                            <template x-for="platform in selectedAsset.platforms" :key="platform.key || platform">
                               <li>
-                                <span x-text="platform.value"></span>
+                                <span x-text="platform.value || platform"></span>
                               </li>
                             </template>
                           </ul>
@@ -193,7 +211,49 @@
                       <li class="uk-disabled">
                         <span x-text="selectedAsset.author"></span>
                       </li>
+                      <template x-if="selectedAsset.listingType">
+                        <li class="uk-disabled">
+                          <span x-text="selectedAsset.listingType"></span>
+                        </li>
+                      </template>
                     </ul>
+                    
+                    <template x-if="selectedAsset.licenses && selectedAsset.licenses.length > 0">
+                      <div class="uk-margin">
+                        <h4>Licensing</h4>
+                        <ul class="uk-list uk-list-divider">
+                          <template x-for="license in selectedAsset.licenses" :key="license.uid">
+                            <li>
+                              <div class="uk-grid-small" uk-grid>
+                                <div class="uk-width-expand">
+                                  <span class="uk-text-bold" x-text="license.name"></span>
+                                </div>
+                                <div class="uk-width-auto">
+                                  <span x-text="license.priceTier ? license.priceTier.price + ' ' + license.priceTier.currencyCode : 'Free'"></span>
+                                </div>
+                              </div>
+                            </li>
+                          </template>
+                        </ul>
+                      </div>
+                    </template>
+                    
+                    <template x-if="selectedAsset.assetFormats && selectedAsset.assetFormats.length > 0">
+                      <div class="uk-margin">
+                        <h4>Asset Formats</h4>
+                        <ul class="uk-list">
+                          <template x-for="format in selectedAsset.assetFormats" :key="format.assetFormatType?.code">
+                            <li>
+                              <span x-text="format.assetFormatType?.name"></span>
+                              <template x-if="format.assetFormatType?.extensions">
+                                <span class="uk-text-muted" x-text="'(' + format.assetFormatType.extensions.join(', ') + ')'"></span>
+                              </template>
+                            </li>
+                          </template>
+                        </ul>
+                      </div>
+                    </template>
+                    
                     <p x-text="selectedAsset.description"></p>
                     <div x-html="selectedAsset.longDescription"></div>
                     <div x-html="selectedAsset.technicalDetails"></div>
@@ -203,7 +263,7 @@
             </div>
           </div>
         </div>
-        <!-- Pagination -->
+        
         <div class="uk-margin-top uk-margin-bottom">
           <select @change="changeItemsPerPage($event.target.value)" class="uk-select uk-form-small uk-width-small">
             <option value="20">20 items/page</option>
@@ -217,7 +277,6 @@
         </div>
       </div>
     </div>
-    <!-- Alpine Core -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="app.js"></script>
   </body>

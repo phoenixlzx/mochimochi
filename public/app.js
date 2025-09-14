@@ -10,16 +10,30 @@ function vaultManager() {
         showDetails: false,
         currentPhoto: 0,
         searchAssetData: {},
+        categoryFilter: '',
+        listingTypeFilter: '',
+        availableCategories: [],
+        availableListingTypes: [],
 
         async init() {
-    const response = await fetch(`/vault.json?timestamp=${new Date().getTime()}`);
+    const response = await fetch(`/data/vault.json?timestamp=${new Date().getTime()}`);
     let assets = await response.json();
 
-    // Remove duplicates based on catalogItemId
+    // Remove duplicates based on catalogItemId and initialize with vault data
     this.allUniqueAssets = Array.from(new Set(assets.map(a => a.catalogItemId)))
         .map(catalogItemId => {
             let asset = assets.find(a => a.catalogItemId === catalogItemId);
-            asset.loaded = false; // Add a loaded property for each asset
+            // Initialize with vault data
+            asset.loaded = false;
+            asset.thumbnail = asset.thumbnail || '';
+            asset.category = asset.category || '';
+            asset.author = asset.seller || '';
+            asset.platforms = asset.platforms || [];
+            asset.compatibleApps = asset.compatibleApps || [];
+            asset.keyImages = asset.keyImages || [];
+            asset.releaseInfo = asset.releaseInfo || [];
+            // Use artifactId from vault data for downloads
+            asset.appId = asset.artifactId || asset.appName;
             return asset;
         });
 
@@ -38,38 +52,75 @@ function vaultManager() {
         const batch = this.allUniqueAssets.slice(i, i + batchSize);
         const batchPromises = batch.map((asset, index) => {
             if (!asset.loaded) {
-                return fetch(`/detail/${asset.catalogItemId}.json`)
+                return fetch(`/data/detail/${asset.catalogItemId}.json`)
                     .then(async response => {
                         if (!response.ok) {
                             throw new Error(`Failed to fetch asset details for ${asset.catalogItemId}`);
                         }
 
                         const details = await response.json();
-                        // Populate asset details
-                        asset.catalogItemId = details.data.data.catalogItemId;
-                        asset.thumbnail = details.data.data.thumbnail;
-                        asset.title = details.data.data.title;
-                        asset.author = details.data.data.seller.name;
-                        asset.category = details.data.data.categories.map(c => c.name).join(', ');
-                        asset.platforms = details.data.data.platforms;
-                        asset.compatibleApps = details.data.data.compatibleApps;
-                        asset.url = `https://www.unrealengine.com/marketplace/en-US/item/${asset.catalogItemId}`;
-                        asset.seller = details.data.data.seller;
-                        asset.description = details.data.data.description;
-                        asset.technicalDetails = details.data.data.technicalDetails;
-                        asset.longDescription = details.data.data.longDescription;
-                        asset.keyImages = details.data.data.keyImages;
-                        asset.releaseInfo = details.data.data.releaseInfo;
+                        
+                        // Handle nested data structure from detail files
+                        const assetData = details.data?.data || details;
+                        
+                        // Enhance asset with detail data
+                        asset.thumbnail = assetData.keyImages?.find(img => img.type === 'Thumbnail')?.url || 
+                                        assetData.keyImages?.find(img => img.type === 'Featured')?.url || 
+                                        asset.thumbnail;
+                        asset.title = assetData.title || asset.title;
+                        asset.author = assetData.seller?.name || asset.author;
+                        
+                        // Handle category structure
+                        if (assetData.categories && assetData.categories.length > 0) {
+                            asset.category = assetData.categories.map(c => c.name).join(', ');
+                        }
+                        
+                        // Handle platforms - can be array of strings or objects
+                        if (assetData.platforms) {
+                            asset.platforms = assetData.platforms.map(p => 
+                                typeof p === 'string' ? { key: p.toLowerCase(), value: p } : p
+                            );
+                        } else if (!asset.platforms) {
+                            asset.platforms = [];
+                        }
+                        asset.compatibleApps = assetData.compatibleApps || asset.compatibleApps;
+                        asset.url = asset.url || `https://www.fab.com/listings/${asset.catalogItemId}`;
+                        asset.seller = assetData.seller || asset.seller;
+                        asset.description = assetData.description || asset.description;
+                        asset.technicalDetails = assetData.technicalDetails;
+                        asset.longDescription = assetData.longDescription;
+                        asset.keyImages = assetData.keyImages || asset.keyImages;
+                        asset.licenses = assetData.licenses || [];
+                        asset.listingType = assetData.listingType || asset.listingType;
+                        asset.assetFormats = assetData.assetFormats || [];
+                        
+                        // Create releaseInfo from detail data if available
+                        if (assetData.releaseInfo && assetData.releaseInfo.length > 0) {
+                            asset.releaseInfo = assetData.releaseInfo;
+                        } else if (asset.appId) {
+                            // Create releaseInfo using artifactId from vault data
+                            asset.releaseInfo = [{
+                                appId: asset.appId,
+                                platform: asset.platforms?.map(p => p.value || p).join(', ') || 'Unknown',
+                                dateAdded: new Date().toISOString()
+                            }];
+                        }
                         asset.loaded = true; // Mark the asset as loaded
                         this.loadedCount++; // Increment the counter when an asset is loaded
 
-                        // Also populate searchAssetData
-                        this.searchAssetData[asset.catalogItemId] = details.data.data.title.toLowerCase() +
-                            details.data.data.categories.map(c => c.name).join(' ').toLowerCase() +
-                            details.data.data.seller.name.toLowerCase() +
-                            details.data.data.description.toLowerCase() +
-                            details.data.data.longDescription.toLowerCase() +
-                            details.data.data.technicalDetails.toLowerCase();
+                        // Build search text from available data
+                        const searchText = [
+                            asset.title,
+                            asset.category,
+                            asset.author,
+                            asset.description,
+                            asset.longDescription,
+                            asset.technicalDetails,
+                            asset.listingType,
+                            (asset.licenses?.map(l => l.name).join(' ') || '')
+                        ].filter(Boolean).join(' ').toLowerCase();
+                        
+                        this.searchAssetData[asset.catalogItemId] = searchText;
                     })
                     .catch(error => {
                         console.error(`Error loading asset ${asset.catalogItemId}:`, error);
@@ -90,6 +141,11 @@ function vaultManager() {
     // Filter assets to only those that are loaded
     this.assets = this.allUniqueAssets.filter(asset => asset.loaded);
     this.totalPages = Math.ceil(this.assets.length / this.itemsPerPage);
+    
+    // Build filter options
+    this.availableCategories = [...new Set(this.assets.map(asset => asset.category).filter(Boolean))].sort();
+    this.availableListingTypes = [...new Set(this.assets.map(asset => asset.listingType).filter(Boolean))].sort();
+    
     this.loadPage();
 },
 
@@ -104,20 +160,40 @@ function vaultManager() {
         },
 
         get filteredAssets() {
-            if (!this.searchQuery) {
-                return this.allUniqueAssets.map(asset => asset.catalogItemId);
+            let filtered = this.allUniqueAssets.filter(asset => asset.loaded);
+            
+            // Apply search query
+            if (this.searchQuery) {
+                const query = this.searchQuery.toLowerCase();
+                filtered = filtered.filter(asset => 
+                    this.searchAssetData[asset.catalogItemId]?.includes(query)
+                );
             }
-
-            const query = this.searchQuery.toLowerCase();
-            return Object.keys(this.searchAssetData).filter(catalogItemId =>
-                this.searchAssetData[catalogItemId].includes(query)
-            );
+            
+            // Apply category filter
+            if (this.categoryFilter) {
+                filtered = filtered.filter(asset => asset.category === this.categoryFilter);
+            }
+            
+            // Apply listing type filter
+            if (this.listingTypeFilter) {
+                filtered = filtered.filter(asset => asset.listingType === this.listingTypeFilter);
+            }
+            
+            return filtered.map(asset => asset.catalogItemId);
         },
 
         async performSearch() {
-            this.currentPage = 1; // Reset to the first page when performing a search
+            this.currentPage = 1;
             this.totalPages = Math.ceil((this.filteredAssets.length || 0) / this.itemsPerPage);
             this.loadPage();
+        },
+        
+        clearFilters() {
+            this.searchQuery = '';
+            this.categoryFilter = '';
+            this.listingTypeFilter = '';
+            this.performSearch();
         },
 
         async changePage(direction) {
@@ -150,20 +226,40 @@ function vaultManager() {
         openModal(asset) {
             this.selectedAsset = asset;
             this.selectedAsset.downloads = {};
+            this.selectedAsset.releaseInfo = this.selectedAsset.releaseInfo || [];
+            
+            // If no releaseInfo exists, create one using the artifactId
+            if (this.selectedAsset.releaseInfo.length === 0 && asset.appId) {
+                this.selectedAsset.releaseInfo = [{
+                    appId: asset.appId,
+                    platform: asset.platforms?.map(p => p.value || p).join(', ') || 'Unknown',
+                    dateAdded: new Date().toISOString()
+                }];
+            }
+            
+            // Ensure all releaseInfo entries have the correct appId
+            for (let rel of this.selectedAsset.releaseInfo) {
+                if (!rel.appId && asset.appId) {
+                    rel.appId = asset.appId;
+                }
+            }
+            
             updateSlideshow(this.selectedAsset);
 
-            for (rel of this.selectedAsset.releaseInfo) {
+            for (let rel of this.selectedAsset.releaseInfo) {
                 rel.download = {};
             }
             UIkit.modal('#modal-full').show();
         },
 
         closeModal() {
-            for (rel of this.selectedAsset.releaseInfo) {
-                try {
-                    clearInterval(rel.download.intervalId);
-                } catch (err) {
-                    console.error(err);
+            if (this.selectedAsset && this.selectedAsset.releaseInfo) {
+                for (let rel of this.selectedAsset.releaseInfo) {
+                    try {
+                        clearInterval(rel.download.intervalId);
+                    } catch (err) {
+                        console.error(err);
+                    }
                 }
             }
             this.selectedAsset = null;
@@ -174,10 +270,10 @@ function vaultManager() {
 }
 
 const getPlatformIconClass = function(platformKey) {
-    switch (platformKey) {
+    const key = (platformKey || '').toLowerCase();
+    switch (key) {
         case 'windows':
-            return 'fa fa-windows';
-        case 'windows2':
+        case 'win32':
             return 'fa fa-windows';
         case 'linux':
             return 'fa fa-linux';
@@ -189,10 +285,8 @@ const getPlatformIconClass = function(platformKey) {
             return 'fa fa-apple';
         case 'laptop':
             return 'fa fa-laptop';
-        case 'eye':
-            return 'fa fa-gamepad';
-        case 'hololens2':
-            return 'fa fa-gamepad';
+        case 'html5':
+            return 'fa fa-html5';
         default:
             return 'fa fa-gamepad';
     }
@@ -255,7 +349,7 @@ const updateSlideshow = function(selectedAsset) {
 }
 
 const requestDownloadStatus = function(rel) {
-    fetch(`/status/${rel.appId}.json`)
+    fetch(`/data/status/${rel.appId}.json`)
         .then(response => response.json())
         .then(json => {
             if (json.status === "complete" || json.status === "error") {
