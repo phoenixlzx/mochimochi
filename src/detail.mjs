@@ -1,9 +1,8 @@
 import fs from 'fs/promises';
 
-import { ENDPOINTS, VARS } from './globals.mjs';
+import { ENDPOINTS } from './globals.mjs';
 import { vaultCache } from './vault.mjs';
 import { makeAuthenticatedRequest } from './auth.mjs';
-import * as utils from './utils.mjs'
 
 import config from '../config.mjs';
 
@@ -38,9 +37,11 @@ async function detail() {
             
             for (const asset of batch) {
                 try {
-                    const assetDetails = await getAssetDetails(ENDPOINTS.detail(asset.catalogItemId));
-                    const processedDetail = processAssetDetail(assetDetails);
-                    await fs.writeFile(`${config.DATA_DIR}/public/detail/${asset.catalogItemId}.json`, JSON.stringify(processedDetail));
+                    const assetDetails = await getBulkAssetDetails([asset.catalogItemId]);
+                    if (assetDetails.length > 0) {
+                        const processedDetail = processAssetDetail(assetDetails[0]);
+                        await fs.writeFile(`${config.DATA_DIR}/public/detail/${asset.catalogItemId}.json`, JSON.stringify(processedDetail));
+                    }
                 } catch (individualErr) {
                     console.error(`Failed to get detail for ${asset.catalogItemId}: ${individualErr}`);
                 }
@@ -53,13 +54,13 @@ async function detail() {
 async function getBulkAssetDetails(catalogItemIds) {
     console.log(`Fetching bulk details for ${catalogItemIds.length} assets`);
 
-    const formData = catalogItemIds.map(id => `nsItemId=ue:${id}`).join('&');
+    const formData = catalogItemIds.map(id => `id=${id}`).join('&');
 
-    const response = await makeAuthenticatedRequest(ENDPOINTS.bulk_detail, {
+    const response = await makeAuthenticatedRequest(ENDPOINTS.bulk_catalog, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': '*/*',
+            'Accept': 'application/json',
             'Accept-Encoding': 'deflate, gzip',
             'X-Epic-Correlation-ID': `UE4-723ec5a34ca59d352eaf0e971e422b8c-2F78085848B4654E7E9DBE86E10641D2-${Date.now().toString(16).toUpperCase()}`
         },
@@ -67,7 +68,7 @@ async function getBulkAssetDetails(catalogItemIds) {
     });
 
     if (!response.ok) {
-        throw new Error(`Bulk detail request failed: ${response.status} ${response.statusText}`);
+        throw new Error(`Bulk catalog request failed: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -101,18 +102,7 @@ async function getBulkAssetDetails(catalogItemIds) {
     }));
 }
 
-async function getAssetDetails(url) {
 
-    console.log(`Reading ${url}`);
-
-    const headers = {
-        "Content-Type": "application/json",
-        "User-Agent": VARS.client_ua
-    }
-
-    return await utils.fetchJson(url, headers)
-
-}
 
 function processAssetDetail(detail) {
     return {
