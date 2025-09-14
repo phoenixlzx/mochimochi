@@ -14,10 +14,10 @@ async function detail() {
 
     const vaultData = await vaultCache();
 
-    const uniqueAssets = Array.from(new Set(vaultData.map(a => a.catalogItemId)))
+    // Only process assets with catalogItemId (legacyItemId) - others are handled in vault.mjs
+    const uniqueAssets = Array.from(new Set(vaultData.filter(a => a.catalogItemId).map(a => a.catalogItemId)))
         .map(catalogItemId => {
-            let asset = vaultData.find(a => a.catalogItemId === catalogItemId);
-            return asset;
+            return vaultData.find(a => a.catalogItemId === catalogItemId);
         });
 
     const batchSize = 50;
@@ -27,28 +27,15 @@ async function detail() {
         
         try {
             console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(uniqueAssets.length/batchSize)} (${batch.length} assets)`);
-            const bulkDetails = await getBulkAssetDetails(catalogItemIds);
             
+            const bulkDetails = await getBulkAssetDetails(catalogItemIds, batch);
             console.log(`Received ${bulkDetails.length} details from bulk API`);
             
             for (const detail of bulkDetails) {
-                // Find the corresponding vault asset by matching the catalogItemId we sent
                 const vaultAsset = batch.find(asset => asset.catalogItemId === detail.catalogItemId);
                 
                 if (vaultAsset) {
-                    const processedDetail = processAssetDetail(detail, vaultAsset);
-                    
-                    const filename = vaultAsset.listingIdentifier ? 
-                        vaultAsset.listingIdentifier.replace(/-/g, '') : 
-                        vaultAsset.catalogItemId;
-                    
-                    await fs.writeFile(`${config.DATA_DIR}/public/detail/${filename}.json`, JSON.stringify(processedDetail));
-                    
-                    if (vaultAsset.listingIdentifier && vaultAsset.listingIdentifier !== vaultAsset.catalogItemId) {
-                        await fs.writeFile(`${config.DATA_DIR}/public/detail/${vaultAsset.catalogItemId}.json`, JSON.stringify(processedDetail));
-                    }
-                    
-                    console.log(`Saved detail for ${vaultAsset.title} (${filename}.json)`);
+                    await saveAssetDetail(detail, vaultAsset);
                 } else {
                     console.warn(`Could not find vault asset for detail ID: ${detail.catalogItemId}`);
                 }
@@ -58,19 +45,10 @@ async function detail() {
             
             for (const asset of batch) {
                 try {
-                    const assetDetails = await getBulkAssetDetails([asset.catalogItemId]);
+                    const assetDetails = await getBulkAssetDetails([asset.catalogItemId], [asset]);
                     
                     if (assetDetails.length > 0) {
-                        const processedDetail = processAssetDetail(assetDetails[0], asset);
-                        const filename = asset.listingIdentifier ? 
-                            asset.listingIdentifier.replace(/-/g, '') : 
-                            asset.catalogItemId;
-                        
-                        await fs.writeFile(`${config.DATA_DIR}/public/detail/${filename}.json`, JSON.stringify(processedDetail));
-                        
-                        if (asset.listingIdentifier && asset.listingIdentifier !== asset.catalogItemId) {
-                            await fs.writeFile(`${config.DATA_DIR}/public/detail/${asset.catalogItemId}.json`, JSON.stringify(processedDetail));
-                        }
+                        await saveAssetDetail(assetDetails[0], asset);
                     }
                 } catch (individualErr) {
                     console.error(`Failed to get detail for ${asset.catalogItemId}: ${individualErr}`);
@@ -81,7 +59,7 @@ async function detail() {
 
 }
 
-async function getBulkAssetDetails(catalogItemIds) {
+async function getBulkAssetDetails(catalogItemIds, batch) {
     console.log(`Fetching bulk details for ${catalogItemIds.length} assets using IDs: ${catalogItemIds.slice(0, 3).join(', ')}${catalogItemIds.length > 3 ? '...' : ''}`);
 
     const formData = catalogItemIds.map(id => `nsItemId=ue:${id}`).join('&');
@@ -187,3 +165,20 @@ function mapEpicToLegacyFormat(detail, vaultAsset) {
 }
 
 
+
+
+async function saveAssetDetail(detail, vaultAsset) {
+    const processedDetail = processAssetDetail(detail, vaultAsset);
+    
+    const filename = vaultAsset.listingIdentifier ? 
+        vaultAsset.listingIdentifier.replace(/-/g, '') : 
+        vaultAsset.catalogItemId;
+    
+    await fs.writeFile(`${config.DATA_DIR}/public/detail/${filename}.json`, JSON.stringify(processedDetail));
+    
+    if (vaultAsset.catalogItemId && vaultAsset.listingIdentifier && vaultAsset.listingIdentifier !== vaultAsset.catalogItemId) {
+        await fs.writeFile(`${config.DATA_DIR}/public/detail/${vaultAsset.catalogItemId}.json`, JSON.stringify(processedDetail));
+    }
+    
+    console.log(`Saved detail for ${vaultAsset.title} (${filename}.json)`);
+}

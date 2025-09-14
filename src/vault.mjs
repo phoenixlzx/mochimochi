@@ -81,15 +81,24 @@ async function readVaultItems(url, authData) {
                     
                     item.projectVersions.forEach(version => {
                         if (version.artifactId) {
-                            mappedItems.push({
-                                catalogItemId: item.legacyItemId || item.assetId,
+                            const assetData = {
+                                catalogItemId: item.legacyItemId,
                                 listingIdentifier: listingIdentifier,
+                                legacyItemId: item.legacyItemId,
                                 artifactId: version.artifactId,
                                 appName: version.artifactId,
                                 namespace: item.assetNamespace,
                                 assetId: item.assetId,
-                                title: item.title
-                            });
+                                title: item.title,
+                                images: item.images || []
+                            };
+                            
+                            mappedItems.push(assetData);
+                            
+                            // Generate detail file immediately for assets without legacyItemId
+                            if (!item.legacyItemId && listingIdentifier) {
+                                generateDetailForAssetWithoutLegacyId(assetData, item);
+                            }
                         }
                     });
                 }
@@ -129,3 +138,50 @@ async function readOneVaultPage(url, authData) {
 
 }
 
+
+async function generateDetailForAssetWithoutLegacyId(assetData, vaultItem) {
+    try {
+        const thumbnail = vaultItem.images?.find(img => img.type === 'Featured')?.url || '';
+        
+        const detailData = {
+            data: {
+                data: {
+                    catalogItemId: assetData.catalogItemId,
+                    listingIdentifier: assetData.listingIdentifier,
+                    title: assetData.title,
+                    description: vaultItem.description || assetData.title,
+                    longDescription: vaultItem.description || assetData.title,
+                    technicalDetails: '',
+                    thumbnail: thumbnail,
+                    seller: {
+                        name: vaultItem.seller || 'Unknown'
+                    },
+                    categories: vaultItem.categories?.map(cat => ({ name: cat.name })) || [],
+                    platforms: vaultItem.projectVersions?.[0]?.targetPlatforms?.map(p => ({ key: p.toLowerCase(), value: p })) || [{ key: 'windows', value: 'Windows' }],
+                    compatibleApps: vaultItem.projectVersions?.[0]?.engineVersions?.map(v => v.replace('UE_', '')) || ['5.0'],
+                    keyImages: vaultItem.images?.map(img => ({
+                        type: img.type === 'Featured' ? 'Thumbnail' : img.type,
+                        url: img.url,
+                        width: img.width || 640,
+                        height: img.height || 349
+                    })) || [],
+                    releaseInfo: [{
+                        appId: assetData.artifactId,
+                        platform: vaultItem.projectVersions?.[0]?.targetPlatforms?.join(', ') || 'Windows',
+                        dateAdded: new Date().toISOString()
+                    }],
+                    licenses: [],
+                    listingType: vaultItem.listingType || '3D',
+                    assetFormats: []
+                }
+            }
+        };
+        
+        const filename = assetData.listingIdentifier.replace(/-/g, '');
+        await fs.writeFile(`${config.DATA_DIR}/public/detail/${filename}.json`, JSON.stringify(detailData));
+        
+        console.log(`Generated detail file for ${assetData.title} (${filename}.json) - no legacyItemId`);
+    } catch (error) {
+        console.error(`Failed to generate detail for ${assetData.title}: ${error}`);
+    }
+}

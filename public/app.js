@@ -18,26 +18,38 @@ function vaultManager() {
             const response = await fetch(`/data/vault.json?t=${Date.now()}`);
             const vaultAssets = await response.json();
 
-            this.allAssets = Array.from(new Set(vaultAssets.map(a => a.catalogItemId)))
-                .map(catalogItemId => {
-                    const vaultAsset = vaultAssets.find(a => a.catalogItemId === catalogItemId);
-                    const listingId = vaultAsset.listingIdentifier || catalogItemId;
-                    return {
-                        catalogItemId,
-                        listingIdentifier: vaultAsset.listingIdentifier,
-                        title: vaultAsset.title || 'Untitled',
-                        appId: vaultAsset.artifactId || vaultAsset.appName,
-                        loaded: false,
-                        thumbnail: '',
-                        category: '',
-                        author: '',
-                        platforms: [],
-                        compatibleApps: [],
-                        keyImages: [],
-                        releaseInfo: [],
-                        url: `https://www.fab.com/listings/${formatUUID(listingId)}`
-                    };
-                });
+            // Group by unique identifier (catalogItemId or listingIdentifier)
+            const uniqueKeys = new Set();
+            const uniqueAssets = [];
+            
+            vaultAssets.forEach(asset => {
+                const key = asset.catalogItemId || asset.listingIdentifier;
+                if (key && !uniqueKeys.has(key)) {
+                    uniqueKeys.add(key);
+                    uniqueAssets.push(asset);
+                }
+            });
+            
+            this.allAssets = uniqueAssets.map(vaultAsset => {
+                const primaryId = vaultAsset.catalogItemId || vaultAsset.listingIdentifier;
+                const listingId = vaultAsset.listingIdentifier || vaultAsset.catalogItemId;
+                return {
+                    catalogItemId: vaultAsset.catalogItemId,
+                    listingIdentifier: vaultAsset.listingIdentifier,
+                    primaryId: primaryId,
+                    title: vaultAsset.title || 'Untitled',
+                    appId: vaultAsset.artifactId || vaultAsset.appName,
+                    loaded: false,
+                    thumbnail: '',
+                    category: '',
+                    author: '',
+                    platforms: [],
+                    compatibleApps: [],
+                    keyImages: [],
+                    releaseInfo: [],
+                    url: `https://www.fab.com/listings/${formatUUID(listingId)}`
+                };
+            });
 
 
             await this.loadAssetDetails();
@@ -59,17 +71,18 @@ function vaultManager() {
             try {
                 let response;
                 
+                // Try listingIdentifier first (for assets with or without catalogItemId)
                 if (asset.listingIdentifier) {
                     const listingFile = asset.listingIdentifier.replace(/-/g, '');
                     response = await fetch(`/data/detail/${listingFile}.json`);
-                    if (!response.ok) {
-                        response = await fetch(`/data/detail/${asset.catalogItemId}.json`);
-                    }
-                } else {
+                }
+                
+                // If that fails and we have catalogItemId, try catalogItemId
+                if ((!response || !response.ok) && asset.catalogItemId) {
                     response = await fetch(`/data/detail/${asset.catalogItemId}.json`);
                 }
                 
-                if (!response.ok) {
+                if (!response || !response.ok) {
                     asset.loaded = true;
                     this.loadedCount++;
                     return;
