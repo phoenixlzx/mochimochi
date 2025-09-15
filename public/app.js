@@ -16,18 +16,20 @@ function vaultManager() {
         router: null,
         scrollPosition: 0,
         directAssetLoaded: false,
+        isInitialized: false,
+        isLoadingAssets: false,
 
         async init() {
-            // Check if we're directly accessing an asset URL BEFORE initializing router
+            if (this.isInitialized) return;
+            this.isInitialized = true;
+
             const hash = window.location.hash.substring(1);
             const isDirectAssetAccess = hash.startsWith('asset/');
 
             if (isDirectAssetAccess) {
-                // For direct asset access, load the asset first, then init router
                 const assetId = hash.split('/')[1];
                 await this.loadSingleAsset(assetId);
-                
-                // Now initialize router after asset is loaded
+
                 try {
                     this.initRouter();
                 } catch (error) {
@@ -37,7 +39,6 @@ function vaultManager() {
                 return;
             }
 
-            // Normal initialization - init router first, then load all assets
             try {
                 this.initRouter();
             } catch (error) {
@@ -49,13 +50,25 @@ function vaultManager() {
         },
 
         async loadAllAssets() {
-            const response = await fetch(`/data/vault.json?t=${Date.now()}`);
-            const vaultAssets = await response.json();
+            if (this.isLoadingAssets) {
+                return;
+            }
 
-            this.allAssets = this.processVaultAssets(vaultAssets);
-            await this.loadAssetDetails();
-            this.buildFilters();
-            this.loadPage();
+            this.isLoadingAssets = true;
+
+            try {
+                const response = await fetch(`/data/vault.json?t=${Date.now()}`);
+                const vaultAssets = await response.json();
+
+                this.allAssets = this.processVaultAssets(vaultAssets);
+                this.loadedCount = this.allAssets.length;
+
+                await this.loadAssetDetails();
+                this.buildFilters();
+                this.loadPage();
+            } finally {
+                this.isLoadingAssets = false;
+            }
         },
 
         async loadSingleAsset(assetId) {
@@ -78,7 +91,7 @@ function vaultManager() {
 
                 this.allAssets = [assetDetail];
                 this.loadedCount = 1;
-                
+
                 // Set the route and selected asset directly since we loaded it
                 this.currentRoute = 'asset';
                 this.openAsset(assetDetail);
@@ -186,7 +199,8 @@ function vaultManager() {
                         engineVersion: 'Unknown',
                         supportedEngines: ['Unknown']
                     }],
-                    url: data.listingIdentifier ? `https://www.fab.com/listings/${formatUUID(data.listingIdentifier)}` : ''
+                    url: data.listingIdentifier ? `https://www.fab.com/listings/${formatUUID(data.listingIdentifier)}` :
+                        data.catalogItemId ? `https://www.fab.com/listings/${formatUUID(data.catalogItemId)}` : ''
                 };
             } catch (error) {
                 console.error('Failed to load single asset:', error);
@@ -195,7 +209,6 @@ function vaultManager() {
         },
 
         processVaultAssets(vaultAssets) {
-
             // Group by unique identifier and merge versions
             const assetGroups = new Map();
 
@@ -289,13 +302,14 @@ function vaultManager() {
                     compatibleApps: compatibleApps,
                     keyImages: [],
                     releaseInfo: vaultAsset.releaseInfo || [],
-                    url: `https://www.fab.com/listings/${formatUUID(listingId)}`
+                    url: listingId ? `https://www.fab.com/listings/${formatUUID(listingId)}` : ''
                 };
             });
         },
 
         async loadAssetDetails() {
             const batchSize = 10;
+
             for (let i = 0; i < this.allAssets.length; i += batchSize) {
                 const batch = this.allAssets.slice(i, i + batchSize);
                 const promises = batch.map(asset => this.loadAssetDetail(asset));
@@ -321,7 +335,6 @@ function vaultManager() {
 
                 if (!response || !response.ok) {
                     asset.loaded = true;
-                    this.loadedCount++;
                     this.loadPage();
                     return;
                 }
@@ -339,6 +352,8 @@ function vaultManager() {
                 asset.keyImages = data.keyImages || [];
                 asset.licenses = data.licenses || [];
                 asset.assetFormats = data.assetFormats || [];
+                
+
                 asset.thumbnail = data.keyImages?.find(img => img.type === 'Thumbnail')?.url ||
                     data.keyImages?.find(img => img.type === 'Featured')?.url ||
                     data.keyImages?.find(img => img.type === 'Screenshot')?.url || '';
@@ -362,14 +377,16 @@ function vaultManager() {
                 if (data.listingIdentifier && !asset.listingIdentifier) {
                     asset.listingIdentifier = data.listingIdentifier;
                     asset.url = `https://www.fab.com/listings/${formatUUID(data.listingIdentifier)}`;
+                } else if (!asset.url && asset.listingIdentifier) {
+                    asset.url = `https://www.fab.com/listings/${formatUUID(asset.listingIdentifier)}`;
+                } else if (!asset.url && asset.catalogItemId) {
+                    asset.url = `https://www.fab.com/listings/${formatUUID(asset.catalogItemId)}`;
                 }
 
                 asset.loaded = true;
-                this.loadedCount++;
                 this.loadPage();
             } catch (error) {
                 asset.loaded = true;
-                this.loadedCount++;
                 this.loadPage();
             }
         },
@@ -473,7 +490,7 @@ function vaultManager() {
             this.directAssetLoaded = false;
 
             // If we only have one asset loaded (from direct access), load all assets
-            if (this.allAssets.length <= 1) {
+            if (this.allAssets.length <= 1 && !this.isLoadingAssets) {
                 this.loadAllAssets().catch(error => {
                     console.error('Failed to load all assets:', error);
                 });
@@ -490,10 +507,10 @@ function vaultManager() {
             if (this.directAssetLoaded && this.currentRoute === 'asset') {
                 return;
             }
-            
+
             this.currentRoute = 'asset';
             const asset = this.allAssets.find(a => a.primaryId === assetId);
-            
+
             if (asset) {
                 this.openAsset(asset);
                 // Scroll to top when viewing asset
@@ -524,6 +541,8 @@ function vaultManager() {
 
         openAsset(asset) {
             this.selectedAsset = { ...asset };
+            
+
 
             if (!this.selectedAsset.releaseInfo || !this.selectedAsset.releaseInfo.length) {
                 this.selectedAsset.releaseInfo = [{

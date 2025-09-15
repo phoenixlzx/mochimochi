@@ -106,6 +106,8 @@
 
 <body class="bg-white text-gray-900">
   <div x-data="vaultManager()" x-init="init()">
+
+
     <!-- Main Content -->
     <div x-show="currentRoute === 'home'" class="container mx-auto px-4 py-8">
       <h1 class="text-4xl font-bold mb-8">Asset Manager</h1>
@@ -233,7 +235,7 @@
                   <div class="relative w-full h-full">
                     <template x-for="(slide, index) in slides" :key="index">
                       <img x-show="currentSlide === index" :src="slide.url" :alt="selectedAsset?.title"
-                        class="w-full h-full object-cover" @error="console.log('Image failed to load:', slide.url)">
+                        class="w-full h-full object-cover">
                     </template>
                     <template x-if="slides.length > 1">
                       <div>
@@ -268,16 +270,19 @@
             <!-- Asset Title and Basic Info -->
             <div class="mb-6">
               <h1 class="text-3xl font-bold mb-2" x-text="selectedAsset?.title"></h1>
+
+
+
               <div class="flex flex-wrap gap-2 text-sm text-gray-600 mb-4">
                 <span x-text="selectedAsset?.category"></span>
                 <span>•</span>
                 <span x-text="selectedAsset?.author"></span>
-                <template x-if="selectedAsset?.listingType">
-                  <div>
-                    <span>•</span>
-                    <span x-text="selectedAsset?.listingType"></span>
-                  </div>
-                </template>
+                <span>•</span>
+                <a :href="selectedAsset?.url" target="_blank" rel="noopener noreferrer"
+                  class="text-black-600 hover:text-black-800 hover:underline">
+                  <i class="fas fa-external-link-alt mr-1"></i>
+                  View on Fab
+                </a>
               </div>
             </div>
 
