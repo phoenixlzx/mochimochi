@@ -18,16 +18,59 @@ function vaultManager() {
             const response = await fetch(`/data/vault.json?t=${Date.now()}`);
             const vaultAssets = await response.json();
 
-            // Group by unique identifier (catalogItemId or listingIdentifier)
-            const uniqueKeys = new Set();
-            const uniqueAssets = [];
+            // Group by unique identifier and merge versions
+            const assetGroups = new Map();
 
             vaultAssets.forEach(asset => {
                 const key = asset.catalogItemId || asset.listingIdentifier;
-                if (key && !uniqueKeys.has(key)) {
-                    uniqueKeys.add(key);
-                    uniqueAssets.push(asset);
+                if (!key) return;
+
+                if (!assetGroups.has(key)) {
+                    assetGroups.set(key, []);
                 }
+                assetGroups.get(key).push(asset);
+            });
+
+            // For each group, merge versions and keep the most recent
+            const uniqueAssets = [];
+            assetGroups.forEach(versions => {
+                // Sort by artifactId to get the most recent version (higher version numbers/newer artifacts)
+                versions.sort((a, b) => {
+                    const aId = a.artifactId || a.appName || '';
+                    const bId = b.artifactId || b.appName || '';
+                    
+                    // Extract version numbers if present (e.g., V4, V3, etc.)
+                    const aVersionMatch = aId.match(/V(\d+)$/);
+                    const bVersionMatch = bId.match(/V(\d+)$/);
+                    
+                    if (aVersionMatch && bVersionMatch) {
+                        return parseInt(bVersionMatch[1]) - parseInt(aVersionMatch[1]);
+                    }
+                    
+                    // Extract UE version numbers (e.g., 5.4, 5.3, etc.)
+                    const aUEMatch = aId.match(/(\d+\.\d+)/);
+                    const bUEMatch = bId.match(/(\d+\.\d+)/);
+                    
+                    if (aUEMatch && bUEMatch) {
+                        return parseFloat(bUEMatch[1]) - parseFloat(aUEMatch[1]);
+                    }
+                    
+                    // Fall back to string comparison
+                    return bId.localeCompare(aId);
+                });
+
+                const latest = versions[0];
+                
+                // Merge engine versions from all variants
+                const allEngineVersions = new Set();
+                versions.forEach(version => {
+                    if (version.engineVersions) {
+                        version.engineVersions.forEach(ev => allEngineVersions.add(ev));
+                    }
+                });
+
+                latest.engineVersions = Array.from(allEngineVersions).sort();
+                uniqueAssets.push(latest);
             });
 
             this.allAssets = uniqueAssets.map(vaultAsset => {
