@@ -1,311 +1,409 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-  <title>Asset Vault</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/css/uikit.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
-    integrity="sha512-SfTiTlX6kk+qitfevl/7LibUOeJWlt9rbyDn92a1DqWOw9vWG2MFoays0sgObmWazO5BQPiFucnnEAjpAB+/Sw=="
-    crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <style>
-    template {
-      display: none !important;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mochimochi Asset Manager</title>
+  <script src="/tailwind.3.4.17.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <script>
+    // Hash-based router implementation
+    class SimpleRouter {
+      constructor(routes) {
+        this.routes = routes;
+        this.currentRoute = '';
+      }
+
+      navigate(path) {
+        const hashPath = path.startsWith('/') ? path.substring(1) : path;
+        window.location.hash = hashPath;
+      }
+
+      handleRoute() {
+        const hash = window.location.hash.substring(1);
+        const path = hash || '';
+        this.currentRoute = path;
+
+        if (this.routes[path] || (path === '' && this.routes[''])) {
+          const route = path === '' ? '' : path;
+          this.routes[route]();
+          return;
+        }
+
+        for (const route in this.routes) {
+          if (route.includes(':')) {
+            const routeParts = route.split('/');
+            const pathParts = path.split('/');
+
+            if (routeParts.length === pathParts.length) {
+              const params = {};
+              let match = true;
+
+              for (let i = 0; i < routeParts.length; i++) {
+                if (routeParts[i].startsWith(':')) {
+                  params[routeParts[i].substring(1)] = pathParts[i];
+                } else if (routeParts[i] !== pathParts[i]) {
+                  match = false;
+                  break;
+                }
+              }
+
+              if (match) {
+                this.routes[route](params);
+                return;
+              }
+            }
+          }
+        }
+
+        if (this.routes['']) {
+          this.routes['']();
+        }
+      }
+
+      listen() {
+        window.addEventListener('hashchange', () => this.handleRoute());
+        this.handleRoute();
+      }
     }
 
-    .uk-card img {
-      object-fit: cover;
-    }
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/js/uikit.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.22/dist/js/uikit-icons.min.js"></script>
+    window.SimpleRouter = SimpleRouter;
+
+    // Define utility functions directly in HTML to avoid timing issues
+    window.formatCompatibleApps = function (compatibleApps) {
+      if (!Array.isArray(compatibleApps) || !compatibleApps.length) return '';
+
+      let sortedApps = compatibleApps.sort((a, b) => parseFloat(a) - parseFloat(b));
+      let chunks = [], chunk = [sortedApps[0]];
+
+      for (let i = 1; i < sortedApps.length; i++) {
+        let [prevMajor, prevMinor] = sortedApps[i - 1].split('.').map(Number);
+        let [major, minor] = sortedApps[i].split('.').map(Number);
+
+        if (major === prevMajor && minor === prevMinor + 1) {
+          chunk.push(sortedApps[i]);
+        } else {
+          chunks.push(chunk);
+          chunk = [sortedApps[i]];
+        }
+      }
+      chunks.push(chunk);
+
+      return chunks.map(chunk => chunk.length === 1 ? chunk[0] : `${chunk[0]}-${chunk[chunk.length - 1]}`).join(', ');
+    };
+
+    window.formatEngineVersions = function (engineVersions) {
+      if (!engineVersions || engineVersions === 'Unknown') return engineVersions;
+      let versions = typeof engineVersions === 'string' ? engineVersions.split(', ') : engineVersions;
+      if (!Array.isArray(versions) || !versions.length) return engineVersions;
+      return window.formatCompatibleApps(versions);
+    };
+  </script>
+  <script src="app.js"></script>
 </head>
 
-<body>
+<body class="bg-white text-gray-900">
   <div x-data="vaultManager()" x-init="init()">
-    <nav class="uk-navbar-container" uk-navbar>
-      <div class="uk-navbar-left">
-        <a class="uk-navbar-item uk-logo">
-          <h1 class="uk-heading-bullet uk-heading-small">Asset Vault</h1>
-        </a>
-      </div>
-      <div class="uk-navbar-right">
-        <div class="uk-navbar-item">
-          <form class="uk-search uk-search-navbar">
-            <span uk-search-icon></span>
-            <input class="uk-search-input" type="search" x-model="searchQuery" x-model.debounce="searchQuery"
-              placeholder="Search..." @input="performSearch" />
-          </form>
+    <!-- Main Content -->
+    <div x-show="currentRoute === 'home'" class="container mx-auto px-4 py-8">
+      <h1 class="text-4xl font-bold mb-8">Asset Manager</h1>
+
+      <!-- Search and Filters -->
+      <div class="mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="md:col-span-2">
+            <input x-model="searchQuery" @input="performSearch()"
+              class="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              type="text" placeholder="Search assets...">
+          </div>
+          <div>
+            <select x-model="categoryFilter" @change="performSearch()"
+              class="flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+              <option value="">All Categories</option>
+              <template x-for="category in availableCategories" :key="category">
+                <option :value="category" x-text="category"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <select x-model="listingTypeFilter" @change="performSearch()"
+              class="flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+              <option value="">All Types</option>
+              <template x-for="type in availableListingTypes" :key="type">
+                <option :value="type" x-text="type"></option>
+              </template>
+            </select>
+          </div>
         </div>
-      </div>
-    </nav>
-    <div class="uk-container uk-container-expand">
-      <div class="uk-margin uk-grid-small" uk-grid>
-        <div class="uk-width-auto">
-          <select x-model="categoryFilter" @change="performSearch" class="uk-select uk-form-small">
-            <option value="">All Categories</option>
-            <template x-for="category in availableCategories" :key="category">
-              <option :value="category" x-text="category"></option>
-            </template>
-          </select>
-        </div>
-        <div class="uk-width-auto">
-          <select x-model="listingTypeFilter" @change="performSearch" class="uk-select uk-form-small">
-            <option value="">All Types</option>
-            <template x-for="type in availableListingTypes" :key="type">
-              <option :value="type" x-text="type"></option>
-            </template>
-          </select>
-        </div>
-        <div class="uk-width-auto">
-          <button @click="clearFilters" class="uk-button uk-button-default uk-button-small">Clear Filters</button>
+        <div class="mt-4">
+          <button @click="clearFilters()"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 hover:text-gray-900 h-10 px-4 py-2">
+            Clear Filters
+          </button>
         </div>
       </div>
 
-      <div class="uk-grid-small uk-grid-match uk-child-width-1-1@s uk-child-width-1-3@m uk-child-width-1-5@l" uk-grid>
-        <template x-for="(asset, index) in assets" :key="asset.primaryId || asset.catalogItemId || asset.listingIdentifier || index">
-          <div class="uk-card uk-grid-collapse uk-margin uk-width-large uk-height-small" uk-grid>
-            <div class="uk-width-1-3">
-              <div class="uk-card-media-left uk-cover-container">
-                <img :src="asset.thumbnail || '/placeholder.png'" :alt="asset.title" uk-cover />
-                <canvas height="155" width="155"></canvas>
-              </div>
+      <!-- Asset Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
+        <template x-for="asset in assets" :key="asset.primaryId">
+          <div
+            class="rounded-lg border bg-white text-gray-950 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            @click="navigateToAsset(asset.primaryId)">
+            <div class="aspect-video overflow-hidden rounded-t-lg">
+              <template x-if="asset.thumbnail">
+                <img :src="asset.thumbnail" :alt="asset.title" class="w-full h-full object-cover">
+              </template>
+              <template x-if="!asset.thumbnail">
+                <div class="w-full h-full bg-gray-100 flex items-center justify-center">
+                  <span class="text-gray-500">No Image</span>
+                </div>
+              </template>
             </div>
-            <div class="uk-width-2-3">
-              <div class="uk-card-body uk-text-left uk-padding-small uk-padding-remove-top">
-                <div class="uk-text-truncate">
-                  <a href="#" class="uk-button uk-button-text uk-text-bold" x-text="asset.title"
-                    :uk-tooltip="asset.title" @click="openModal(asset)"></a>
-                </div>
-                <div class="uk-child-width-expand@s" uk-grid>
-                  <ul class="uk-list uk-list-collapse">
-                    <li class="uk-text-truncate">
-                      <span class="uk-text-muted" x-text="asset.category || 'Uncategorized'"></span>
-                    </li>
-                    <li class="uk-text-truncate">
-                      <span x-text="formatCompatibleApps(asset.compatibleApps)"></span>
-                    </li>
-                    <li class="uk-text-truncate">
-                      <template x-for="platform in asset.platforms" :key="platform.key || platform">
-                        <span class="uk-margin-small-right">
-                          <i :class="getPlatformIconClass(platform.key || platform)"
-                            :title="platform.value || platform"></i>
-                        </span>
-                      </template>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <a :href="asset.url" @click.stop class="uk-button uk-button-text" target="_blank">Fab</a>
-                  <template x-if="asset.licenses && asset.licenses.length > 0">
-                    <span class="uk-text-small uk-text-muted"
-                      x-text="asset.licenses[0].priceTier?.price || 'Free'"></span>
-                  </template>
-                </div>
+            <div class="p-4">
+              <h3 class="font-semibold text-lg mb-1 truncate" x-text="asset.title"></h3>
+              <p class="text-sm text-gray-600 mb-2 truncate" x-text="asset.author"></p>
+              <p class="text-sm text-gray-600 mb-2 truncate" x-text="asset.category"></p>
+              <div class="text-xs text-gray-500">
+                <span>UE: </span>
+                <span x-text="formatCompatibleApps(asset.compatibleApps)"></span>
               </div>
             </div>
           </div>
         </template>
       </div>
 
-      <div id="modal-full" class="uk-modal-full uk-margin-remove" uk-modal>
-        <div class="uk-modal-dialog uk-section">
-          <div x-show="selectedAsset" x-cloak>
-            <button class="uk-modal-close-full uk-close-large" type="button" uk-close @click="closeModal()"></button>
-            <div class="uk-grid-collapse" uk-grid>
-              <div class="uk-width-3-5 uk-padding uk-padding-remove-top">
-                <div uk-slideshow="animation: slide; autoplay: true;">
-                  <div class="uk-position-relative uk-visible-toggle uk-light" tabindex="0">
-                    <ul class="uk-slideshow-items">
-                    </ul>
-                    <a class="uk-position-center-left uk-position-small uk-hidden-hover" href="#" uk-slidenav-previous
-                      uk-slideshow-item="previous"></a>
-                    <a class="uk-position-center-right uk-position-small uk-hidden-hover" href="#" uk-slidenav-next
-                      uk-slideshow-item="next"></a>
-                  </div>
-                  <ul class="uk-slideshow-nav uk-dotnav uk-flex-center uk-margin"></ul>
-                </div>
-                <div class="uk-grid-divider" uk-grid>
-                  <div class="uk-width-1-1@s uk-width-1-3@m">
-                    <dl class="uk-description-list">
-                      <dt>Supported Engine Versions</dt>
-                      <dd x-text="formatCompatibleApps(selectedAsset.compatibleApps)"></dd>
-                      <dt>Supported Platforms</dt>
-                      <dd>
-                        <ul class="uk-list uk-list-collapse">
-                          <template x-for="platform in selectedAsset.platforms" :key="platform.key || platform">
-                            <li>
-                              <span x-text="platform.value || platform"></span>
-                            </li>
-                          </template>
-                        </ul>
-                      </dd>
-                    </dl>
-                  </div>
-                  <div class="uk-width-1-1@s uk-width-2-3@m">
-                    <ul class="uk-list uk-list-divider">
-                      <template
-                        x-for="(release, index) in selectedAsset.releaseInfo.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded))"
-                        :key="release.appId">
-                        <li>
-                          <div class="uk-comment">
-                            <header class="uk-comment-header">
-                              <div class="uk-grid-medium uk-flex-middle" uk-grid>
-                                <div class="uk-width-expand">
-                                  <h4 class="uk-comment-title uk-margin-remove">
-                                    <span x-text="release.appId"></span>
-                                  </h4>
-                                </div>
-                              </div>
-                            </header>
-                            <div class="uk-comment-body">
-                              <ul class="uk-comment-meta uk-subnav uk-subnav-divider uk-margin-remove-top">
-                                <li>
-                                  <span
-                                    x-text="new Date(release.dateAdded).toLocaleString(undefined, dateOptions)"></span>
-                                </li>
-                                <li>
-                                  <template x-if="release.download.status === 'complete'">
-                                    <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
-                                      <div>
-                                        <a href="#" @click.prevent="requestDownloadLink(release.appId)"
-                                          class="uk-button uk-button-text">Download</a>
-                                      </div>
-                                      <div class=""></div>
-                                    </div>
-                                  </template>
-                                  <template
-                                    x-if="release.download.status && release.download.status !== 'complete' && release.download.status !== 'error'">
-                                    <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
-                                      <div>
-                                        <progress class="uk-progress uk-margin-remove"
-                                          :value="release.download.progress" max="1"></progress>
-                                      </div>
-                                      <div class="">
-                                        <span x-text="release.download.status"></span>
-                                      </div>
-                                    </div>
-                                  </template>
-                                  <template x-if="release.download.status === 'error'">
-                                    <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
-                                      <div>
-                                        <a href="#" class="uk-button uk-button-text" disabled>Error</a>
-                                      </div>
-                                      <div>
-                                        <a href="#" @click.prevent="requestDownloadInfo(release)"
-                                          class="uk-button uk-button-text">Retry?</a>
-                                      </div>
-                                    </div>
-                                  </template>
-                                  <template x-if="!release.download.status">
-                                    <div class="uk-grid-small uk-width-large uk-child-width-expand" uk-grid>
-                                      <div>
-                                        <a href="#" @click.prevent="requestDownloadInfo(release)"
-                                          class="uk-button uk-button-text">Request</a>
-                                      </div>
-                                    </div>
-                                    <div class=""></div>
-                                  </template>
-                                </li>
-                              </ul>
-                            </div>
-                          </div>
-                        </li>
-                      </template>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              <div class="uk-width-2-5 uk-padding uk-padding-remove-top uk-padding-remove-left">
-                <div class="">
-                  <h1 class="uk-heading-small uk-heading-divider" x-text="selectedAsset.title"></h1>
-                  <ul class="uk-breadcrumb">
-                    <li class="uk-disabled">
-                      <span x-text="selectedAsset.category"></span>
-                    </li>
-                    <li class="uk-disabled">
-                      <span x-text="selectedAsset.author"></span>
-                    </li>
-                    <template x-if="selectedAsset.listingType">
-                      <li class="uk-disabled">
-                        <span x-text="selectedAsset.listingType"></span>
-                      </li>
-                    </template>
-                  </ul>
-
-                  <template x-if="selectedAsset.licenses && selectedAsset.licenses.length > 0">
-                    <div class="uk-margin">
-                      <h4>Licensing</h4>
-                      <ul class="uk-list uk-list-divider">
-                        <template x-for="license in selectedAsset.licenses" :key="license.uid">
-                          <li>
-                            <div class="uk-grid-small" uk-grid>
-                              <div class="uk-width-expand">
-                                <span class="uk-text-bold" x-text="license.name"></span>
-                              </div>
-                              <div class="uk-width-auto">
-                                <span
-                                  x-text="license.priceTier ? license.priceTier.price + ' ' + license.priceTier.currencyCode : 'Free'"></span>
-                              </div>
-                            </div>
-                          </li>
-                        </template>
-                      </ul>
-                    </div>
-                  </template>
-
-                  <template x-if="selectedAsset.assetFormats && selectedAsset.assetFormats.length > 0">
-                    <div class="uk-margin">
-                      <h4>Asset Formats</h4>
-                      <ul class="uk-list">
-                        <template x-for="format in selectedAsset.assetFormats" :key="format.assetFormatType?.code">
-                          <li>
-                            <span x-text="format.assetFormatType?.name"></span>
-                            <template x-if="format.assetFormatType?.extensions">
-                              <span class="uk-text-muted"
-                                x-text="'(' + format.assetFormatType.extensions.join(', ') + ')'"></span>
-                            </template>
-                          </li>
-                        </template>
-                      </ul>
-                    </div>
-                  </template>
-
-                  <p x-text="selectedAsset.description"></p>
-                  <div x-html="selectedAsset.longDescription"></div>
-                  <div x-html="selectedAsset.technicalDetails"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="uk-margin-top uk-margin-bottom uk-flex uk-flex-between uk-flex-middle">
-        <div>
-          <select x-model="itemsPerPage" @change="changeItemsPerPage(itemsPerPage)" class="uk-select uk-form-small uk-width-small">
+      <!-- Pagination -->
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-4">
+          <select x-model="itemsPerPage" @change="changeItemsPerPage(itemsPerPage)"
+            class="flex h-9 w-auto items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-1 text-sm ring-offset-white focus:outline-none focus:ring-2 focus:ring-gray-950 focus:ring-offset-2">
             <option value="20" :selected="itemsPerPage === 20">20 items/page</option>
             <option value="50" :selected="itemsPerPage === 50">50 items/page</option>
             <option value="100" :selected="itemsPerPage === 100">100 items/page</option>
           </select>
-          <span class="uk-text-muted uk-margin-small-left">
+          <span class="text-sm text-gray-600">
             <span x-text="loadedCount"></span> assets loaded
           </span>
         </div>
-        <div>
+        <div class="flex items-center gap-2">
           <button @click="changePage('prev')" :disabled="currentPage === 1"
-            class="uk-button uk-button-default uk-button-small"
-            :class="{ 'uk-disabled': currentPage === 1 }">Prev</button>
-          <span class="uk-margin-small-left uk-margin-small-right"
-            x-text="`Page ${currentPage} of ${totalPages}`"></span>
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 hover:text-gray-900 h-9 px-3"
+            :class="{ 'opacity-50 cursor-not-allowed': currentPage === 1 }">
+            Previous
+          </button>
+          <span class="text-sm text-gray-600 px-4" x-text="`Page ${currentPage} of ${totalPages}`"></span>
           <button @click="changePage('next')" :disabled="currentPage === totalPages"
-            class="uk-button uk-button-default uk-button-small"
-            :class="{ 'uk-disabled': currentPage === totalPages }">Next</button>
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 hover:text-gray-900 h-9 px-3"
+            :class="{ 'opacity-50 cursor-not-allowed': currentPage === totalPages }">
+            Next
+          </button>
         </div>
       </div>
     </div>
+
+    <!-- Asset Detail Page -->
+    <div x-show="currentRoute === 'asset'" class="container mx-auto px-4 py-8">
+      <div x-show="selectedAsset">
+        <!-- Back Button -->
+        <button @click="navigateHome()"
+          class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 hover:text-gray-900 h-10 px-4 py-2 mb-6">
+          <i class="fas fa-arrow-left mr-2"></i>
+          Back to Assets
+        </button>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <!-- Left Column: Image Gallery and Description -->
+          <div class="lg:col-span-2">
+            <!-- Image Gallery -->
+            <div class="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-6" id="slideshow-container">
+              <div class="relative w-full h-full" x-data="{ currentSlide: 0, slides: [] }" x-init="$watch('selectedAsset', () => {
+                  if (selectedAsset?.keyImages) {
+                    slides = selectedAsset.keyImages.filter(img => 
+                      (img.type === 'Screenshot' || img.type === 'Featured' || img.type === 'Thumbnail') && 
+                      img.url && img.url.trim() !== ''
+                    );
+                    currentSlide = 0;
+                  } else {
+                    slides = [];
+                  }
+                })">
+                <template x-if="slides.length > 0">
+                  <div class="relative w-full h-full">
+                    <template x-for="(slide, index) in slides" :key="index">
+                      <img x-show="currentSlide === index" :src="slide.url" :alt="selectedAsset?.title"
+                        class="w-full h-full object-cover" @error="console.log('Image failed to load:', slide.url)">
+                    </template>
+                    <template x-if="slides.length > 1">
+                      <div>
+                        <button @click="currentSlide = currentSlide > 0 ? currentSlide - 1 : slides.length - 1"
+                          class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 z-10">
+                          <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button @click="currentSlide = currentSlide < slides.length - 1 ? currentSlide + 1 : 0"
+                          class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 z-10">
+                          <i class="fas fa-chevron-right"></i>
+                        </button>
+                        <!-- Slide indicators -->
+                        <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
+                          <template x-for="(slide, index) in slides" :key="index">
+                            <button @click="currentSlide = index" class="w-2 h-2 rounded-full transition-colors"
+                              :class="currentSlide === index ? 'bg-white' : 'bg-white/50'">
+                            </button>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="slides.length === 0">
+                  <div class="w-full h-full flex items-center justify-center">
+                    <span class="text-gray-500">No Images Available</span>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Asset Title and Basic Info -->
+            <div class="mb-6">
+              <h1 class="text-3xl font-bold mb-2" x-text="selectedAsset?.title"></h1>
+              <div class="flex flex-wrap gap-2 text-sm text-gray-600 mb-4">
+                <span x-text="selectedAsset?.category"></span>
+                <span>•</span>
+                <span x-text="selectedAsset?.author"></span>
+                <template x-if="selectedAsset?.listingType">
+                  <div>
+                    <span>•</span>
+                    <span x-text="selectedAsset?.listingType"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Description -->
+            <div class="rounded-lg border bg-white text-gray-950 shadow-sm p-6 mb-6">
+              <h4 class="font-semibold mb-3">Description</h4>
+              <p class="text-sm text-gray-600 mb-4" x-text="selectedAsset?.description"></p>
+              <div class="prose prose-sm max-w-none" x-html="selectedAsset?.longDescription"></div>
+              <div class="prose prose-sm max-w-none mt-4" x-html="selectedAsset?.technicalDetails"></div>
+            </div>
+
+            <!-- Asset Formats -->
+            <template x-if="selectedAsset?.assetFormats && selectedAsset.assetFormats.length > 0">
+              <div class="rounded-lg border bg-white text-gray-950 shadow-sm p-6 mb-6">
+                <h4 class="font-semibold mb-3">Asset Formats</h4>
+                <ul class="space-y-1">
+                  <template x-for="format in selectedAsset.assetFormats" :key="format.assetFormatType?.code">
+                    <li class="text-sm">
+                      <span x-text="format.assetFormatType?.name"></span>
+                      <template x-if="format.assetFormatType?.extensions">
+                        <span class="text-gray-600"
+                          x-text="'(' + format.assetFormatType.extensions.join(', ') + ')'"></span>
+                      </template>
+                    </li>
+                  </template>
+                </ul>
+              </div>
+            </template>
+          </div>
+
+          <!-- Right Column: Download Options and Licensing -->
+          <div class="space-y-6">
+            <!-- Download Options -->
+            <div class="rounded-lg border bg-white text-gray-950 shadow-sm p-6">
+              <h3 class="text-lg font-semibold mb-4">Download Options</h3>
+              <div class="space-y-4">
+                <template x-for="(release, index) in (selectedAsset?.releaseInfo || []).sort((a, b) => {
+                    const aVersion = parseFloat(a.engineVersion || '0');
+                    const bVersion = parseFloat(b.engineVersion || '0');
+                    return bVersion - aVersion || new Date(b.dateAdded) - new Date(a.dateAdded);
+                  })" :key="release.appId">
+                  <div class="rounded-lg border bg-white p-4">
+                    <div class="mb-2">
+                      <h4 class="font-semibold" x-text="release.appId"></h4>
+                      <div class="text-xs text-gray-600 mt-1"
+                        x-text="new Date(release.dateAdded).toLocaleString(undefined, dateOptions)"></div>
+                      <template
+                        x-if="release.supportedEngines && release.supportedEngines !== 'Unknown' && !release.supportedEngines.includes('Unknown')">
+                        <div class="flex items-center gap-2 mt-2"></div>
+                        <span
+                          class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-gray-950 focus:ring-offset-2 border-transparent bg-green-100 text-green-800">
+                          UE <span
+                            x-text="formatEngineVersions(Array.isArray(release.supportedEngines) ? release.supportedEngines : [release.supportedEngines])"></span>
+                        </span>
+                        <template x-if="release.buildVersion">
+                          <span class="text-xs text-gray-600" x-text="release.buildVersion"></span>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="!release.supportedEngines || release.supportedEngines === 'Unknown'">
+                  <div class="mt-2">
+                    <span
+                      class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-gray-950 focus:ring-offset-2 border-transparent bg-yellow-100 text-yellow-800">
+                      UE Version Unknown
+                    </span>
+                  </div>
+                </template>
+              </div>
+
+              <div class="mt-3">
+                <template x-if="release.download?.status === 'complete'">
+                  <button @click="requestDownloadLink(release.appId)"
+                    class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-gray-900 text-gray-50 hover:bg-gray-900/90 h-10 px-4 py-2 w-full">
+                    Download
+                  </button>
+                </template>
+                <template
+                  x-if="release.download?.status && release.download.status !== 'complete' && release.download.status !== 'error'">
+                  <div class="space-y-2">
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                      <div class="bg-gray-900 h-2 rounded-full transition-all duration-300"
+                        :style="`width: ${(release.download.progress || 0) * 100}%`"></div>
+                    </div>
+                    <span class="text-sm text-gray-600" x-text="release.download.status"></span>
+                  </div>
+                </template>
+                <template x-if="release.download?.status === 'error'">
+                  <div class="flex gap-2">
+                    <span class="text-sm text-red-600">Error</span>
+                    <button @click="requestDownloadInfo(release)" class="text-sm text-gray-900 hover:underline">
+                      Retry?
+                    </button>
+                  </div>
+                </template>
+                <template x-if="!release.download?.status">
+                  <button @click="requestDownloadInfo(release)"
+                    class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 hover:text-gray-900 h-10 px-4 py-2 w-full">
+                    Request Download
+                  </button>
+                </template>
+              </div>
+            </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Licensing -->
+        <template x-if="selectedAsset?.licenses && selectedAsset.licenses.length > 0">
+          <div class="rounded-lg border bg-white text-gray-950 shadow-sm p-6">
+            <h4 class="font-semibold mb-3">Licensing</h4>
+            <div class="space-y-2">
+              <template x-for="license in selectedAsset.licenses" :key="license.uid">
+                <div class="flex justify-between items-center">
+                  <span class="font-medium" x-text="license.name"></span>
+                  <span class="text-sm text-gray-600"
+                    x-text="license.priceTier ? license.priceTier.price + ' ' + license.priceTier.currencyCode : 'Free'"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
   </div>
-  <script src="app.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  </div>
+  </div>
 </body>
 
 </html>

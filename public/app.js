@@ -12,11 +12,189 @@ function vaultManager() {
         availableCategories: [],
         availableListingTypes: [],
         loadedCount: 0,
+        currentRoute: 'home',
+        router: null,
+        scrollPosition: 0,
+        directAssetLoaded: false,
 
         async init() {
+            // Check if we're directly accessing an asset URL BEFORE initializing router
+            const hash = window.location.hash.substring(1);
+            const isDirectAssetAccess = hash.startsWith('asset/');
 
+            if (isDirectAssetAccess) {
+                // For direct asset access, load the asset first, then init router
+                const assetId = hash.split('/')[1];
+                await this.loadSingleAsset(assetId);
+                
+                // Now initialize router after asset is loaded
+                try {
+                    this.initRouter();
+                } catch (error) {
+                    console.error('Router initialization failed:', error);
+                    this.currentRoute = 'home';
+                }
+                return;
+            }
+
+            // Normal initialization - init router first, then load all assets
+            try {
+                this.initRouter();
+            } catch (error) {
+                console.error('Router initialization failed:', error);
+                this.currentRoute = 'home';
+            }
+
+            await this.loadAllAssets();
+        },
+
+        async loadAllAssets() {
             const response = await fetch(`/data/vault.json?t=${Date.now()}`);
             const vaultAssets = await response.json();
+
+            this.allAssets = this.processVaultAssets(vaultAssets);
+            await this.loadAssetDetails();
+            this.buildFilters();
+            this.loadPage();
+        },
+
+        async loadSingleAsset(assetId) {
+            try {
+                // First, try to load the asset detail
+                const assetDetail = await this.loadAssetDetailById(assetId);
+                if (!assetDetail) {
+                    await this.loadAllAssets();
+                    return;
+                }
+
+                // Also load vault data to get release info
+                const vaultAsset = await this.loadVaultAssetById(assetId);
+
+                // Merge vault data with detail data
+                if (vaultAsset) {
+                    assetDetail.releaseInfo = vaultAsset.releaseInfo || assetDetail.releaseInfo;
+                    assetDetail.compatibleApps = vaultAsset.compatibleApps || assetDetail.compatibleApps;
+                }
+
+                this.allAssets = [assetDetail];
+                this.loadedCount = 1;
+                
+                // Set the route and selected asset directly since we loaded it
+                this.currentRoute = 'asset';
+                this.openAsset(assetDetail);
+                this.directAssetLoaded = true;
+                window.scrollTo(0, 0);
+            } catch (error) {
+                console.error('Failed to load single asset:', error);
+                await this.loadAllAssets();
+            }
+        },
+
+        async loadVaultAssetById(assetId) {
+            try {
+                const response = await fetch(`/data/vault.json?t=${Date.now()}`);
+                const vaultAssets = await response.json();
+
+                // Find the asset in vault data
+                const vaultAsset = vaultAssets.find(asset =>
+                    asset.catalogItemId === assetId ||
+                    asset.listingIdentifier === assetId ||
+                    asset.catalogItemId?.replace(/-/g, '') === assetId ||
+                    asset.listingIdentifier?.replace(/-/g, '') === assetId
+                );
+
+                if (!vaultAsset) return null;
+
+                // Process the single vault asset similar to processVaultAssets
+                const cleanVersions = vaultAsset.engineVersions?.map(v => v.replace('UE_', '')) || [];
+                return {
+                    catalogItemId: vaultAsset.catalogItemId,
+                    listingIdentifier: vaultAsset.listingIdentifier,
+                    compatibleApps: cleanVersions,
+                    releaseInfo: [{
+                        appId: vaultAsset.artifactId || vaultAsset.appName,
+                        platform: 'Windows',
+                        dateAdded: new Date().toISOString(),
+                        engineVersion: cleanVersions[0] || 'Unknown',
+                        supportedEngines: cleanVersions.length > 0 ? cleanVersions : ['Unknown']
+                    }]
+                };
+            } catch (error) {
+                console.error('Failed to load vault asset:', error);
+                return null;
+            }
+        },
+
+        async loadAssetDetailById(assetId) {
+            try {
+                // Try different possible file names for the asset
+                const possibleFiles = [
+                    `${assetId}.json`,
+                    `${assetId.replace(/-/g, '')}.json`,
+                    // Also try with dashes if the original doesn't have them
+                    assetId.length === 32 ? `${assetId.slice(0, 8)}-${assetId.slice(8, 12)}-${assetId.slice(12, 16)}-${assetId.slice(16, 20)}-${assetId.slice(20)}.json` : null
+                ].filter(Boolean);
+
+                let response;
+                let detail;
+
+                for (const fileName of possibleFiles) {
+                    try {
+                        response = await fetch(`/data/detail/${fileName}`);
+                        if (response.ok) {
+                            detail = await response.json();
+                            break;
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
+
+                if (!detail) {
+                    return null;
+                }
+
+                const data = detail.data?.data || detail;
+
+                return {
+                    catalogItemId: data.catalogItemId || assetId,
+                    listingIdentifier: data.listingIdentifier || assetId,
+                    primaryId: assetId,
+                    title: data.title || 'Untitled',
+                    appId: data.appId || assetId,
+                    loaded: true,
+                    thumbnail: data.keyImages?.find(img => img.type === 'Thumbnail')?.url ||
+                        data.keyImages?.find(img => img.type === 'Featured')?.url ||
+                        data.keyImages?.find(img => img.type === 'Screenshot')?.url || '',
+                    category: data.categories?.map(c => c.name || c.path?.split('/').pop()).filter(Boolean).join(', ') || '',
+                    author: data.seller?.name || data.developer || '',
+                    description: data.description || '',
+                    longDescription: data.longDescription || '',
+                    technicalDetails: data.technicalDetails || '',
+                    listingType: data.listingType || '',
+                    keyImages: data.keyImages || [],
+                    licenses: data.licenses || [],
+                    assetFormats: data.assetFormats || [],
+                    platforms: (data.platforms || []).map(p =>
+                        typeof p === 'string' ? { key: p.toLowerCase(), value: p } : p
+                    ),
+                    compatibleApps: data.compatibleApps || [],
+                    releaseInfo: data.releaseInfo || [{
+                        appId: data.appId || assetId,
+                        platform: 'Windows',
+                        dateAdded: new Date().toISOString(),
+                        engineVersion: 'Unknown',
+                        supportedEngines: ['Unknown']
+                    }],
+                    url: data.listingIdentifier ? `https://www.fab.com/listings/${formatUUID(data.listingIdentifier)}` : ''
+                };
+            } catch (error) {
+                console.error('Failed to load single asset:', error);
+                return null;
+            }
+        },
+
+        processVaultAssets(vaultAssets) {
 
             // Group by unique identifier and merge versions
             const assetGroups = new Map();
@@ -31,37 +209,49 @@ function vaultManager() {
                 assetGroups.get(key).push(asset);
             });
 
-            // For each group, merge versions and keep the most recent
+            // For each group, merge versions and create release info
             const uniqueAssets = [];
             assetGroups.forEach(versions => {
                 // Sort by artifactId to get the most recent version (higher version numbers/newer artifacts)
                 versions.sort((a, b) => {
                     const aId = a.artifactId || a.appName || '';
                     const bId = b.artifactId || b.appName || '';
-                    
+
                     // Extract version numbers if present (e.g., V4, V3, etc.)
                     const aVersionMatch = aId.match(/V(\d+)$/);
                     const bVersionMatch = bId.match(/V(\d+)$/);
-                    
+
                     if (aVersionMatch && bVersionMatch) {
                         return parseInt(bVersionMatch[1]) - parseInt(aVersionMatch[1]);
                     }
-                    
+
                     // Extract UE version numbers (e.g., 5.4, 5.3, etc.)
                     const aUEMatch = aId.match(/(\d+\.\d+)/);
                     const bUEMatch = bId.match(/(\d+\.\d+)/);
-                    
+
                     if (aUEMatch && bUEMatch) {
                         return parseFloat(bUEMatch[1]) - parseFloat(aUEMatch[1]);
                     }
-                    
+
                     // Fall back to string comparison
                     return bId.localeCompare(aId);
                 });
 
                 const latest = versions[0];
-                
-                // Merge engine versions from all variants
+
+                // Create releaseInfo from all versions BEFORE merging engine versions
+                latest.releaseInfo = versions.map(version => {
+                    const cleanVersions = version.engineVersions?.map(v => v.replace('UE_', '')) || [];
+                    return {
+                        appId: version.artifactId || version.appName,
+                        platform: 'Windows',
+                        dateAdded: new Date().toISOString(),
+                        engineVersion: cleanVersions[0] || 'Unknown',
+                        supportedEngines: cleanVersions.length > 0 ? cleanVersions : ['Unknown']
+                    };
+                });
+
+                // Merge engine versions from all variants for display compatibility
                 const allEngineVersions = new Set();
                 versions.forEach(version => {
                     if (version.engineVersions) {
@@ -70,10 +260,18 @@ function vaultManager() {
                 });
 
                 latest.engineVersions = Array.from(allEngineVersions).sort();
+
+                // Sort release info by engine version (newest first)
+                latest.releaseInfo.sort((a, b) => {
+                    const aVersion = parseFloat(a.engineVersion);
+                    const bVersion = parseFloat(b.engineVersion);
+                    return bVersion - aVersion;
+                });
+
                 uniqueAssets.push(latest);
             });
 
-            this.allAssets = uniqueAssets.map(vaultAsset => {
+            return uniqueAssets.map(vaultAsset => {
                 const primaryId = vaultAsset.catalogItemId || vaultAsset.listingIdentifier;
                 const listingId = vaultAsset.listingIdentifier || vaultAsset.catalogItemId;
                 const compatibleApps = vaultAsset.engineVersions ? vaultAsset.engineVersions.map(v => v.replace('UE_', '')) : [];
@@ -90,15 +288,10 @@ function vaultManager() {
                     platforms: [],
                     compatibleApps: compatibleApps,
                     keyImages: [],
-                    releaseInfo: [],
+                    releaseInfo: vaultAsset.releaseInfo || [],
                     url: `https://www.fab.com/listings/${formatUUID(listingId)}`
                 };
             });
-
-
-            await this.loadAssetDetails();
-            this.buildFilters();
-            this.loadPage();
         },
 
         async loadAssetDetails() {
@@ -156,11 +349,15 @@ function vaultManager() {
 
 
 
-                asset.releaseInfo = data.releaseInfo?.length ? data.releaseInfo : [{
-                    appId: asset.appId,
-                    platform: asset.platforms.map(p => p.value || p).join(', ') || 'Windows',
-                    dateAdded: new Date().toISOString()
-                }];
+                // Preserve the releaseInfo created during vault processing
+                // Only update if we don't already have releaseInfo from vault processing
+                if (!asset.releaseInfo || asset.releaseInfo.length === 0) {
+                    asset.releaseInfo = data.releaseInfo?.length ? data.releaseInfo : [{
+                        appId: asset.appId,
+                        platform: asset.platforms.map(p => p.value || p).join(', ') || 'Windows',
+                        dateAdded: new Date().toISOString()
+                    }];
+                }
 
                 if (data.listingIdentifier && !asset.listingIdentifier) {
                     asset.listingIdentifier = data.listingIdentifier;
@@ -257,42 +454,92 @@ function vaultManager() {
             this.assets = filtered.slice(start, end) || [];
         },
 
-        openModal(asset) {
+        initRouter() {
+            if (typeof SimpleRouter !== 'undefined') {
+                this.router = new SimpleRouter({
+                    '': () => this.showHome(),
+                    'asset/:id': (params) => this.showAsset(params.id)
+                });
+                this.router.listen();
+            } else {
+                console.warn('SimpleRouter not available, using fallback routing');
+                this.currentRoute = 'home';
+            }
+        },
+
+        showHome() {
+            this.currentRoute = 'home';
+            this.selectedAsset = null;
+            this.directAssetLoaded = false;
+
+            // If we only have one asset loaded (from direct access), load all assets
+            if (this.allAssets.length <= 1) {
+                this.loadAllAssets().catch(error => {
+                    console.error('Failed to load all assets:', error);
+                });
+            }
+
+            // Restore scroll position after DOM updates
+            setTimeout(() => {
+                window.scrollTo(0, this.scrollPosition);
+            }, 100);
+        },
+
+        showAsset(assetId) {
+            // If we already loaded this asset directly, don't process again
+            if (this.directAssetLoaded && this.currentRoute === 'asset') {
+                return;
+            }
+            
+            this.currentRoute = 'asset';
+            const asset = this.allAssets.find(a => a.primaryId === assetId);
+            
+            if (asset) {
+                this.openAsset(asset);
+                // Scroll to top when viewing asset
+                window.scrollTo(0, 0);
+            } else {
+                this.router.navigate('');
+            }
+        },
+
+        navigateToAsset(assetId) {
+            // Remember current scroll position
+            this.scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+
+            if (this.router) {
+                this.router.navigate(`asset/${assetId}`);
+            } else {
+                this.showAsset(assetId);
+            }
+        },
+
+        navigateHome() {
+            if (this.router) {
+                this.router.navigate('');
+            } else {
+                this.showHome();
+            }
+        },
+
+        openAsset(asset) {
             this.selectedAsset = { ...asset };
 
-            if (!this.selectedAsset.releaseInfo.length && asset.appId) {
+            if (!this.selectedAsset.releaseInfo || !this.selectedAsset.releaseInfo.length) {
                 this.selectedAsset.releaseInfo = [{
                     appId: asset.appId,
-                    platform: asset.platforms.map(p => p.value || p).join(', ') || 'Unknown',
+                    platform: asset.platforms?.map(p => p.value || p).join(', ') || 'Windows',
                     dateAdded: new Date().toISOString()
                 }];
             }
 
             this.selectedAsset.releaseInfo.forEach(rel => {
                 if (!rel.appId) rel.appId = asset.appId;
-                rel.download = {};
+                rel.download = rel.download || {};
             });
-
-            updateSlideshow(this.selectedAsset);
-
-            if (typeof UIkit !== 'undefined' && UIkit.modal) {
-                UIkit.modal('#modal-full').show();
-            }
-        },
-
-        closeModal() {
-            if (this.selectedAsset?.releaseInfo) {
-                this.selectedAsset.releaseInfo.forEach(rel => {
-                    if (rel.download?.intervalId) {
-                        clearInterval(rel.download.intervalId);
-                    }
-                });
-            }
-            this.selectedAsset = null;
-        },
+        }
 
     };
-
 }
 
 const formatUUID = function (uuid) {
@@ -357,31 +604,19 @@ const formatCompatibleApps = function (compatibleApps) {
     return chunks.map(chunk => chunk.length === 1 ? chunk[0] : `${chunk[0]}-${chunk[chunk.length - 1]}`).join(', ');
 }
 
-const updateSlideshow = function (selectedAsset) {
-    const slideshowContainer = document.querySelector('.uk-slideshow-items');
-    if (!slideshowContainer) return;
+const formatEngineVersions = function (engineVersions) {
+    if (!engineVersions || engineVersions === 'Unknown') return engineVersions;
 
-    slideshowContainer.innerHTML = '';
+    // If it's already a string with commas, split it into an array
+    let versions = typeof engineVersions === 'string' ? engineVersions.split(', ') : engineVersions;
 
-    const screenshots = selectedAsset.keyImages?.filter(img => img.type === 'Screenshot' && img.url) || [];
+    if (!Array.isArray(versions) || !versions.length) return engineVersions;
 
-    screenshots.forEach(image => {
-        const li = document.createElement('li');
-        const img = document.createElement('img');
-        img.src = image.url;
-        img.alt = selectedAsset.title || '';
-        img.setAttribute('uk-cover', '');
-        li.appendChild(img);
-        slideshowContainer.appendChild(li);
-    });
-
-    if (screenshots.length > 0 && slideshowContainer.parentElement) {
-        UIkit.slideshow(slideshowContainer.parentElement, {
-            animation: 'slide',
-            autoplay: true
-        });
-    }
+    // Use the same logic as formatCompatibleApps
+    return formatCompatibleApps(versions);
 }
+
+
 
 const requestDownloadStatus = function (rel) {
     fetch(`/data/status/${rel.appId}.json`)
