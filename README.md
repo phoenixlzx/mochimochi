@@ -6,6 +6,11 @@ Mochi is delicious. Nom nom nom.
 
 Ask Epic why they made their launcher so hard to use.
 
+Update: it is even worse with fab. Hey Epic, your launcher is a browser. Why it can't just display the damn page IN THE LAUNCHER?!
+
+And you even provided API for asset details (this line is my TODO):
+`https://www.fab.com/i/listings/<ListingIdentifier>`
+
 ### Notice
 
 This is for personal or internal team use only.
