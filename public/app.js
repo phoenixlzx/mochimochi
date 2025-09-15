@@ -352,7 +352,7 @@ function vaultManager() {
                 asset.keyImages = data.keyImages || [];
                 asset.licenses = data.licenses || [];
                 asset.assetFormats = data.assetFormats || [];
-                
+
 
                 asset.thumbnail = data.keyImages?.find(img => img.type === 'Thumbnail')?.url ||
                     data.keyImages?.find(img => img.type === 'Featured')?.url ||
@@ -541,7 +541,7 @@ function vaultManager() {
 
         openAsset(asset) {
             this.selectedAsset = { ...asset };
-            
+
 
 
             if (!this.selectedAsset.releaseInfo || !this.selectedAsset.releaseInfo.length) {
